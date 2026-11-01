@@ -12,14 +12,14 @@
 
 - **Backend**: Go (Gin) + SQLite (`data/only4.fun.db`)
 - **Frontend**: Next.js (App Router) — login, dashboard, project detail page, redeploy & delete
-- **Build**: Docker container (isolated per build)
+- **Build**: Direct host build (Node.js + npm on VPS)
 - **Infrastructure**: VPS + Next.js :3000 + Node.js processes :4000-5000 (per project)
 
 ## Technical Architecture
 
 ```
 Frontend        Backend API        Infrastructure
-(Next.js)       (Go + Gin)       (Docker + Nginx + Cloudflare)
+(Next.js)       (Go + Gin)       (Nginx + Cloudflare)
     │                  │                      │
     │                  │                      │
     └─► GitHub OAuth ─► Repo Clone ─► Build ─► Serve via Nginx
@@ -31,7 +31,7 @@ Frontend        Backend API        Infrastructure
 |-------|------------|----------|
 | Frontend | Next.js (App Router) | Login, dashboard, project detail page, redeploy & delete |
 | Backend | Go + Gin | API, GitHub OAuth, build orchestrator |
-| Builder | Docker | Clone repo, build static assets |
+| Builder | Node.js + npm (host) | Clone repo, build static assets |
 | Storage | Local disk / shared volume | Static files output |
 | Web Server | Nginx | Reverse proxy per subdomain |
 | DNS | Cloudflare API | Wildcard SSL (`*.only4.fun`) — automatic |
@@ -44,7 +44,7 @@ Frontend        Backend API        Infrastructure
    - Git repo URL
    - Project name (becomes subdomain)
    - Environment variables (key:value, optional)
-4. Backend clones repo → builds with Docker → saves static files
+4. Backend clones repo → builds with Node.js/npm → saves static files
 5. Backend adds DNS record to Cloudflare for `namaproject.only4.fun`
 6. Nginx reload config, site goes live
 7. User opens `namaproject.only4.fun`, sees their site
@@ -65,7 +65,7 @@ Frontend        Backend API        Infrastructure
 
 ## Non-Functional
 
-- **Build isolation**: Each build in a separate Docker container (Go)
+- **Build isolation**: Each build runs directly on the host (Node.js + npm)
 - **Subdomain wildcard**: `*.only4.fun` in Cloudflare
 - **Rate limit**: Prevent abuse of repo clone via GitHub OAuth
 - **Health check**: Endpoint `/health` for monitoring
@@ -84,7 +84,7 @@ Frontend        Backend API        Infrastructure
 |-------|------|-------|
 | 1 | Setup repo, Go Gin backend base, GitHub OAuth | 1-2 days |
 | 2 | Frontend Next.js login + dashboard base | 1-2 days |
-| 3 | Build pipeline (Docker clone + build static) | 2-3 days |
+| 3 | Build pipeline (clone + build static) | 2-3 days |
 | 4 | Subdomain + Cloudflare DNS + Nginx routing | 1-2 days |
 | 5 | Env vars, redeploy, delete, polishing | 1-2 days |
 | **Total** | **MVP ready to test** | **6-11 days** |
@@ -153,7 +153,7 @@ When a project is deleted, the symlink and `.releases/<subdomain>` folder are cl
 
 ## Security & Operations
 
-- **Build isolation**: Each build runs in a Docker container (`BUILDER_MODE=auto`)
+- **Build isolation**: Builds run directly on the host (Node.js + npm available on PATH)
 - **Subdomain wildcard**: `*.only4.fun` in Cloudflare Universal SSL (free)
 - **No per-subdomain certs needed** — Cloudflare handles all
 - **SSR process management**: Node.js processes per project (ports 4000-5000), auto-started on first access

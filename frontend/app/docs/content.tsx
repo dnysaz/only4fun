@@ -258,9 +258,7 @@ export const docSections: Record<string, { title: string; content: React.ReactNo
           <li style={LI}><strong>DNS</strong> — create/update subdomain record when Cloudflare is configured.</li>
         </ol>
         <p style={P}>
-          Builds run in Docker by default. When Docker is unavailable the build fails unless the operator explicitly
-          sets <code style={CODE}>BUILDER_ALLOW_LOCAL=true</code>, because repository scripts would otherwise run
-          directly on the server. A build exceeding the timeout is stopped and marked failed. Jobs are queued and
+          Builds run directly on the host (Node.js + npm). Make sure Node.js is installed on the VPS before deploying. A build exceeding the timeout is stopped and marked failed. Jobs are queued and
           processed one at a time.
         </p>
       </>
@@ -648,7 +646,7 @@ const { columns, rows } = await res.json()
           <li style={LI}>Profanity filter (EN + ID), administrative/porn/political word filter.</li>
           <li style={LI}>GitHub webhooks are verified with an HMAC SHA-256 signature against a per-project secret; the endpoint takes no session.</li>
           <li style={LI}>ZIP uploads are limited (100 MB compressed, 500 MB extracted, 20,000 files) and reject path traversal and symlinks.</li>
-          <li style={LI}>Builds run inside Docker by default; repository scripts only run on the host when the operator opts in explicitly.</li>
+          <li style={LI}>Builds run directly on the host (Node.js + npm).</li>
           <li style={LI}>SQLite database holds accounts, projects, env vars (encrypted), deployment logs. Back it up.</li>
         </ul>
       </>
@@ -759,7 +757,7 @@ const { columns, rows } = await res.json()
         <h3 style={H3}>Deploy fails immediately</h3>
         <p style={P}>Open the deployment log. A duplicate project name, invalid repository URL, or unreadable repository are usual causes.</p>
         <h3 style={H3}>The log says local builds are disabled</h3>
-        <p style={P}>Docker was not reachable when the job ran, so the server refused to run repository scripts unisolated. Start Docker, or — only on an instance you fully trust — set <code style={CODE}>BUILDER_ALLOW_LOCAL=true</code>.</p>
+        <p style={P}>Build failed because Node.js or npm is missing, or the build command failed. Install Node.js on the VPS and retry.</p>
         <h3 style={H3}>Build fails while installing dependencies</h3>
         <p style={P}>Check that a lockfile matches your manifest. The log shows the failing command and its last lines.</p>
         <h3 style={H3}>The site shows a 404 or the wrong page</h3>

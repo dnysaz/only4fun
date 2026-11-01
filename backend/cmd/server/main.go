@@ -41,9 +41,6 @@ func main() {
 
 	stores := server.NewStores(db)
 	buildEngine := builder.New(cfg.Build)
-	if buildEngine.Mode() == "local" && !cfg.Build.AllowLocal {
-		log.Printf("WARNING: Docker is unavailable and local builds are not allowed; builds will fail. Set BUILDER_ALLOW_LOCAL=true only if you trust every repository that can be deployed.")
-	}
 	dnsClient := dns.New(cfg.Cloudflare)
 	if dnsClient.Enabled() {
 		log.Printf("integrasi Cloudflare aktif untuk zona %s (target %s, proxy=%v)", cfg.Cloudflare.Domain, cfg.Cloudflare.Target, cfg.Cloudflare.Proxy)

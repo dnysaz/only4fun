@@ -29,12 +29,12 @@ export const docMeta: Record<string, DocMeta> = {
   opensource: {
     title: "Open source and self-hostable",
     description:
-      "only4.fun is open source and can be self-hosted: the Go deployment engine, the Next.js dashboard, SQLite storage, and Docker builds all run on your own server.",
+      "only4.fun is open source and can be self-hosted: the Go deployment engine, the Next.js dashboard, SQLite storage, and Node.js builds all run on your own server.",
   },
   how: {
     title: "How it works",
     description:
-      "The path a deployment takes: GitHub OAuth, repository clone, Docker or local build, release folders on disk, DNS record creation, and serving through the reverse proxy.",
+      "The path a deployment takes: GitHub OAuth, repository clone, Node.js build, release folders on disk, DNS record creation, and serving through the reverse proxy.",
   },
   accounts: {
     title: "Accounts and sign-in",

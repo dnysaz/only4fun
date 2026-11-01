@@ -280,17 +280,7 @@ Type: A     Name: *     Content: <VPS_IP>     Proxy: Proxied
 
 ### Build Isolation
 
-Default build runs in a container (`BUILDER_MODE=auto` → Docker when available). If Docker is
-not available, the build **fails** with a clear message, because running `npm install`/build
-of a user's repo directly on the host means the repo's scripts run with server permissions (RCE).
-
-For local development on a trusted machine, allow explicitly:
-
-```bash
-BUILDER_ALLOW_LOCAL=true
-```
-
-Never enable this option on a multi-user instance.
+Builds run directly on the host (VPS). Make sure Node.js and npm are installed and available on the PATH. Build output is published to `data/sites/<subdomain>/`.
 
 ### HTTPS & Cookies
 

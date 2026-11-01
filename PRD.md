@@ -30,7 +30,7 @@ Build a simple platform so users can publish static/serverless sites from a Git 
 - User pastes Git repo URL (public/private)
 - Backend clones repo
 - Detect framework/build command (optional default: `npm run build` with output `dist` or `out`)
-- Build in Docker container (isolation)
+- Build directly on host (Node.js + npm)
 - Save build output to shared storage
 
 ### 3.3 Environment Variables
@@ -54,7 +54,7 @@ Build a simple platform so users can publish static/serverless sites from a Git 
 
 ```
 Frontend        Backend API         Infrastructure
-(Next.js)       (Go + Gin)          (Docker + Nginx + Cloudflare)
+(Next.js)       (Go + Gin)          (Nginx + Cloudflare)
     │                  │                      │
     │                  │                      │
     └─► GitHub OAuth ─► Repo Clone ─► Build ─► Serve via Nginx
@@ -66,7 +66,7 @@ Frontend        Backend API         Infrastructure
 |-------|------------|---------|
 | Frontend | Next.js (App Router) | Login UI, dashboard, deploy form, env input |
 | Backend | Go + Gin | API, GitHub OAuth, build orchestrator |
-| Builder | Docker | Clone repo, build static assets |
+| Builder | Node.js + npm | Clone repo, build static assets |
 | Storage | Local disk / shared volume | Static files output |
 | Web Server | Nginx | Reverse proxy per subdomain |
 | DNS | Cloudflare API | Auto-create A/CNAME records for `*.only4.fun` |
@@ -81,7 +81,7 @@ Frontend        Backend API         Infrastructure
    - Git repo URL
    - Project name (becomes subdomain)
    - Environment variables (key:value, optional)
-4. Backend clones repo → builds with Docker → saves static files
+4. Backend clones repo → builds with Node.js/npm → saves static files
 5. Backend adds DNS record to Cloudflare for `namaproject.only4.fun`
 6. Nginx reloads config, site goes live
 7. User opens `namaproject.only4.fun`, sees their site
@@ -106,7 +106,7 @@ Frontend        Backend API         Infrastructure
 
 ## 7. Non-Functional Requirements
 
-- **Build isolation**: Each build runs in a separate Docker container
+- **Build isolation**: Each build runs directly on the host (Node.js + npm)
 - **Subdomain wildcard**: `*.only4.fun` in Cloudflare
 - **Rate limit**: Prevent abuse of repeated repo cloning
 - **Health check**: `/health` endpoint for monitoring
@@ -129,7 +129,7 @@ Frontend        Backend API         Infrastructure
 |-------|------|------|
 | 1 | Setup repo, Go Gin backend base, GitHub OAuth | 1-2 days |
 | 2 | Frontend Next.js login + dashboard base | 1-2 days |
-| 3 | Build pipeline (Docker clone + build static) | 2-3 days |
+| 3 | Build pipeline (clone + build static) | 2-3 days |
 | 4 | Subdomain + Cloudflare DNS + Nginx routing | 1-2 days |
 | 5 | Env vars, redeploy, delete, polishing | 1-2 days |
 | **Total** | **MVP ready to test** | **6-11 days** |

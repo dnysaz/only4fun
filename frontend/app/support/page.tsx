@@ -124,7 +124,7 @@ export default function SupportPage() {
           <a href="https://react.dev" target="_blank" rel="noreferrer">React</a>; the API uses{" "}
           <a href="https://gin-gonic.com" target="_blank" rel="noreferrer">Gin</a> and{" "}
           <a href="https://www.sqlite.org" target="_blank" rel="noreferrer">SQLite</a>. Each dependency keeps its own
-          license, distributed with the packages. Build isolation uses Docker and a Node image. Sessions rely on
+          license, distributed with the packages. Build runs directly on the host using Node.js and npm. Sessions rely on
           GitHub OAuth, and subdomains are served through Cloudflare.
         </p>
         <p style={{ ...P, color: "#8a8a8a", marginTop: 24 }}>

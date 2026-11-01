@@ -44,16 +44,9 @@ type CloudflareConfig struct {
 }
 
 type BuildConfig struct {
-	DockerSocket string `env:"DOCKER_SOCKET" default:"/var/run/docker.sock"`
-	BuilderImage string `env:"BUILDER_IMAGE" default:"node:20-alpine"`
 	CacheDir     string `env:"CACHE_DIR" default:"/tmp/only4.fun/cache"`
 	// SitesDir adalah folder tempat hasil build dipublikasikan.
 	SitesDir string `env:"SITES_DIR" default:"./data/sites"`
-	// Mode menentukan cara build: "docker", "local", atau "auto" (docker bila tersedia).
-	Mode string `env:"BUILDER_MODE" default:"auto"`
-	// AllowLocal harus true secara eksplisit agar build dijalankan langsung di
-	// host. Default false karena build lokal mengeksekusi script repo pengguna.
-	AllowLocal bool `env:"BUILDER_ALLOW_LOCAL" default:"false"`
 	// TimeoutSeconds membatasi durasi satu build.
 	TimeoutSeconds int `env:"BUILD_TIMEOUT_SECONDS" default:"600"`
 }
@@ -82,12 +75,8 @@ func Load() (*Config, error) {
 			Target: os.Getenv("CLOUDFLARE_TARGET"),
 		},
 		Build: BuildConfig{
-			DockerSocket:   getEnv("DOCKER_SOCKET", "/var/run/docker.sock"),
-			BuilderImage:   getEnv("BUILDER_IMAGE", "node:20-alpine"),
 			CacheDir:       getEnv("CACHE_DIR", "/tmp/only4.fun/cache"),
 			SitesDir:       getEnv("SITES_DIR", "./data/sites"),
-			Mode:           getEnv("BUILDER_MODE", "auto"),
-			AllowLocal:     getEnvBool("BUILDER_ALLOW_LOCAL", false),
 			TimeoutSeconds: getEnvInt("BUILD_TIMEOUT_SECONDS", 600),
 		},
 	}

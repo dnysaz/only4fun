@@ -27,51 +27,22 @@ type Job struct {
 	Token string
 }
 
-// Builder mengeksekusi clone + build. Mode "docker" mengisolasi build di container,
-// mode "local" menjalankan perintah langsung di host (dipakai saat Docker tidak tersedia).
+// Builder mengeksekusi clone + build. Build dijalankan langsung di host (VPS).
 type Builder struct {
-	cfg  config.BuildConfig
-	mode string
-	// localBlocked true bila mode efektif "local" tetapi tidak diizinkan
-	// secara eksplisit lewat BUILDER_ALLOW_LOCAL.
-	localBlocked bool
+	cfg config.BuildConfig
 }
 
-// New membuat Builder dan menentukan mode efektif.
+// New membuat Builder.
 func New(cfg config.BuildConfig) *Builder {
-	mode := strings.ToLower(strings.TrimSpace(cfg.Mode))
-	if mode != "docker" && mode != "local" {
-		// auto: pakai docker bila daemon bisa dihubungi, kalau tidak fallback ke local.
-		if dockerAvailable() {
-			mode = "docker"
-		} else {
-			mode = "local"
-		}
-	}
-	return &Builder{cfg: cfg, mode: mode, localBlocked: mode == "local" && !cfg.AllowLocal}
+	return &Builder{cfg: cfg}
 }
 
-// Mode mengembalikan mode efektif yang dipakai.
-func (b *Builder) Mode() string { return b.mode }
-
-func dockerAvailable() bool {
-	if _, err := exec.LookPath("docker"); err != nil {
-		return false
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	return exec.CommandContext(ctx, "docker", "info").Run() == nil
-}
+func (b *Builder) Mode() string { return "local" }
 
 // Build menjalankan seluruh pipeline dan mengembalikan folder hasil build di SitesDir.
 func (b *Builder) Build(ctx context.Context, job Job, logf func(string)) (string, error) {
 	if err := validateSubdomain(job.Subdomain); err != nil {
 		return "", err
-	}
-	// Build lokal menjalankan script repo langsung di host (tanpa isolasi),
-	// jadi hanya boleh aktif bila operator menyetujuinya secara eksplisit.
-	if b.localBlocked {
-		return "", fmt.Errorf("local builds are disabled: Docker is unavailable and BUILDER_ALLOW_LOCAL is not true")
 	}
 
 	timeout := time.Duration(b.cfg.TimeoutSeconds) * time.Second
@@ -94,7 +65,7 @@ func (b *Builder) Build(ctx context.Context, job Job, logf func(string)) (string
 	}
 	defer os.RemoveAll(workDir)
 
-	logf(fmt.Sprintf("build mode: %s", b.mode))
+	logf(fmt.Sprintf("build mode: %s", b.Mode()))
 	logf(fmt.Sprintf("clone %s", job.RepoURL))
 	if err := b.clone(ctx, job, workDir, logf); err != nil {
 		return "", err
@@ -242,29 +213,13 @@ func (b *Builder) runBuild(ctx context.Context, job Job, workDir string, logf fu
 }
 
 func (b *Builder) exec(ctx context.Context, job Job, workDir, command string, logf func(string)) error {
-	var cmd *exec.Cmd
-	if b.mode == "docker" {
-		args := []string{
-			"run", "--rm",
-			"--network", "bridge",
-			"-v", workDir + ":/workspace",
-			"-w", "/workspace",
-			"-e", "CI=1",
-		}
-		for k, v := range job.EnvVars {
-			args = append(args, "-e", k+"="+v)
-		}
-		args = append(args, b.cfg.BuilderImage, "sh", "-lc", command)
-		cmd = exec.CommandContext(ctx, "docker", args...)
-	} else {
-		cmd = exec.CommandContext(ctx, "sh", "-lc", command)
-		cmd.Dir = workDir
-		env := append(os.Environ(), "CI=1")
-		for k, v := range job.EnvVars {
-			env = append(env, k+"="+v)
-		}
-		cmd.Env = env
+	cmd := exec.CommandContext(ctx, "sh", "-lc", command)
+	cmd.Dir = workDir
+	env := append(os.Environ(), "CI=1")
+	for k, v := range job.EnvVars {
+		env = append(env, k+"="+v)
 	}
+	cmd.Env = env
 
 	stdout, pipeErr := cmd.StdoutPipe()
 	if pipeErr != nil {

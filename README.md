@@ -42,7 +42,7 @@ server, then serves the output on a subdomain such as `my-project.only4.fun` or 
                         ┌─────────────────────┼──────────────────────┐
                         ▼                     ▼                      ▼
                  SQLite database       Build worker            Sites on disk
-              users, sessions,      clone → docker build →   .releases/<subdomain>/
+              users, sessions,      clone → build →          .releases/<subdomain>/
               projects, deploys     publish a release        <release> + proxy
                         │                     │                      │
                         └─────────── GitHub OAuth / API ─────────────┘
@@ -60,7 +60,7 @@ dashboard and the in-app documentation; it never talks to the database directly.
 | Frontend | Next.js 14 (App Router), React 18, TypeScript, CSS Modules |
 | Backend | Go 1.23, Gin, `sqlx` |
 | Database | SQLite |
-| Build pipeline | Docker (default) or local builds when explicitly allowed |
+| Build pipeline | Direct host builds (Node.js + npm) |
 | Auth | GitHub OAuth 2.0 |
 | DNS | Cloudflare API (optional) |
 
@@ -94,7 +94,7 @@ dashboard and the in-app documentation; it never talks to the database directly.
 
 - **Go 1.23+**
 - **Node.js 20+** and npm
-- **Docker** (recommended for builds; `BUILDER_MODE=local` with `BUILDER_ALLOW_LOCAL=true` runs untrusted build scripts on the host)
+- **Node.js + npm** (required for builds on the VPS host)
 - A **GitHub OAuth app** (Client ID + secret) with callback `<api-host>/auth/github/callback`
 - Optional: a **Cloudflare** API token if you want subdomain DNS created automatically
 
@@ -151,9 +151,6 @@ Open `http://localhost:3000`, sign in with GitHub, and create your first project
 | `CLOUDFLARE_API_KEY` / `CLOUDFLARE_ZONE_ID` / `CLOUDFLARE_DOMAIN` | – | Automatic subdomain DNS (optional) |
 | `CLOUDFLARE_TARGET` | – | VPS IP (A record) or hostname (CNAME) for subdomains |
 | `CLOUDFLARE_PROXY` | `true` | Send traffic through the Cloudflare proxy |
-| `BUILDER_MODE` | `auto` | `docker`, `local`, or `auto` |
-| `BUILDER_ALLOW_LOCAL` | `false` | Allow host builds when Docker is unavailable |
-| `BUILDER_IMAGE` | `node:20-alpine` | Image used for builds |
 | `CACHE_DIR` | `/tmp/only4.fun/cache` | Temporary clone/build workspace |
 | `SITES_DIR` | `/var/lib/only4.fun/sites` | Published releases served by the proxy |
 | `BUILD_TIMEOUT_SECONDS` | `600` | Timeout per build |
@@ -214,7 +211,7 @@ CI runs exactly these steps on every push and pull request.
 - Sessions are random 256-bit identifiers; the database stores only their SHA-256 hash.
 - GitHub tokens and environment values are encrypted with AES-256-GCM using `SESSION_SECRET`.
 - Every project endpoint verifies ownership.
-- Builds run inside Docker by default; host builds are opt-in.
+- Builds run directly on the host (Node.js + npm).
 - ZIP uploads are limited and reject path traversal and symlinks.
 - GitHub webhooks are verified with an HMAC SHA-256 signature.
 
