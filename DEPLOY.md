@@ -1,6 +1,6 @@
 # Deployment Guide — VPS + Cloudflare
 
-## Arsitektur
+## Architecture
 
 ```
 User Browser
@@ -10,46 +10,47 @@ Cloudflare (SSL termination + WAF + DDoS protection + proxy)
      │  HTTPS (edge cert: *.only4.fun)
      ▼
 VPS (Go backend :8080 + Next.js :3000)
-     │  HTTP (internal, tidak exposed ke publik)
+     │  HTTP (internal, not exposed to public)
      ▼
 data/sites/<subdomain>/  (static files)
      │
-     ▼ (jika SSR)
+     ▼ (if SSR)
 Node.js process :4000-5000 (per project)
 ```
 
 ## SSL / Subdomain
 
-**Tidak perlu mengatur SSL per subdomain.** Cloudflare Universal SSL otomatis mencakup:
+**No need to configure SSL per subdomain.** Cloudflare Universal SSL automatically covers:
 - `only4.fun`
-- `*.only4.fun` (semua subdomain)
+- `*.only4.fun` (all subdomains)
 
-Cukup set DNS record wildcard di Cloudflare:
+Just set a wildcard DNS record in Cloudflare:
 ```
 Type: A
 Name: *
-Content: <IP VPS>
-Proxy: Proxied (orange cloud) ← WAJIB agar SSL aktif
+Content: <VPS_IP>
+Proxy: Proxied (orange cloud) ← REQUIRED for SSL to be active
 TTL: Auto
 ```
 
-Dan satu record untuk root:
+And one record for the root:
 ```
 Type: A
-Name: @ (atau only4.fun)
-Content: <IP VPS>
+Name: @ (or only4.fun)
+Content: <VPS_IP>
 Proxy: Proxied
 ```
 
-### Mode SSL Cloudflare
-Gunakan **Full (strict)**:
+### Cloudflare SSL Mode
+
+Use **Full (strict)**:
 1. Cloudflare → SSL/TLS → Overview → Full (strict)
 2. Generate Origin Certificate: SSL/TLS → Origin Server → Create Certificate
-3. Install cert di VPS (nginx/caddy) atau Go backend
+3. Install cert on VPS (nginx/caddy) or Go backend
 
-Atau gunakan **Flexible** (lebih mudah, tapi kurang aman):
-- Cloudflare handle SSL ke user, VPS serve HTTP
-- Tidak perlu cert di VPS
+Or use **Flexible** (easier, but less secure):
+- Cloudflare handles SSL to user, VPS serves HTTP
+- No cert needed on VPS
 
 ## deploy.sh
 
@@ -57,7 +58,7 @@ Atau gunakan **Flexible** (lebih mudah, tapi kurang aman):
 #!/usr/bin/env bash
 set -euo pipefail
 
-# ─── Konfigurasi ──────────────────────────────────────────────────────────────
+# ─── Configuration ──────────────────────────────────────────────────────────────
 APP_DIR="/opt/only4.fun"
 BACKEND_DIR="$APP_DIR/backend"
 FRONTEND_DIR="$APP_DIR/frontend"
@@ -65,7 +66,7 @@ LOG_DIR="/var/log/only4.fun"
 SERVICE_BACKEND="only4fun-backend"
 SERVICE_FRONTEND="only4fun-frontend"
 
-# ─── Warna output ─────────────────────────────────────────────────────────────
+# ─── Output colors ─────────────────────────────────────────────────────────────
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -275,95 +276,96 @@ Type: A     Name: *     Content: <VPS_IP>     Proxy: Proxied
 3. SSL/TLS → Edge Certificates → Always Use HTTPS: **On**
 4. SSL/TLS → Edge Certificates → Minimum TLS Version: **1.2**
 
-## Keamanan & Operasional
+## Security & Operations
 
-### Isolasi build
+### Build Isolation
 
-Build default dijalankan di container (`BUILDER_MODE=auto` → Docker bila tersedia). Bila Docker tidak
-ada, build **gagal** dengan pesan jelas, karena menjalankan `npm install`/`build` repo pengguna langsung
-di host berarti script repo berjalan dengan izin server (RCE).
+Default build runs in a container (`BUILDER_MODE=auto` → Docker when available). If Docker is
+not available, the build **fails** with a clear message, because running `npm install`/build
+of a user's repo directly on the host means the repo's scripts run with server permissions (RCE).
 
-Untuk pengembangan lokal di mesin yang dipercaya, izinkan secara eksplisit:
+For local development on a trusted machine, allow explicitly:
 
 ```bash
 BUILDER_ALLOW_LOCAL=true
 ```
 
-Jangan pernah menyalakan opsi ini di instance multi-user.
+Never enable this option on a multi-user instance.
 
-### HTTPS & cookie
+### HTTPS & Cookies
 
-Karena TLS berhenti di Cloudflare/nginx, backend mendeteksi HTTPS dari header proxy
-(`X-Forwarded-Proto: https` atau `CF-Visitor: {"scheme":"https"}`) dan baru kemudian mengirim cookie
-`Secure`. Pastikan Nginx meneruskan header tersebut (konfigurasi di atas sudah melakukannya):
+Because TLS terminates at Cloudflare/nginx, the backend detects HTTPS from the proxy header
+(`X-Forwarded-Proto: https` or `CF-Visitor: {"scheme":"https"}`) and only then sends the
+`Secure` cookie. Make sure Nginx forwards that header (the config above already does):
 
 ```nginx
 proxy_set_header X-Forwarded-Proto $scheme;
 ```
 
-Gunakan mode SSL Cloudflare **Full (strict)** dengan Origin Certificate. Mode **Flexible** membuat hop
-Cloudflare → VPS tetap HTTP polos sehingga cookie session dan token GitHub bisa disadap di jaringan.
+Use Cloudflare SSL mode **Full (strict)** with Origin Certificate. **Flexible** mode keeps the
+Cloudflare → VPS hop as plain HTTP, so session cookies and GitHub tokens can be intercepted on the network.
 
-### Struktur rilis & deploy atomik
+### Release Structure & Atomic Deploy
 
 ```
 data/sites/
 ├── <subdomain> -> .releases/<subdomain>/release-xxxx   (symlink)
 └── .releases/<subdomain>/
-    ├── release-xxxx   (rilis aktif)
-    └── release-yyyy   (2 rilis cadangan terbaru)
+    ├── release-xxxx   (active release)
+    └── release-yyyy   (2 most recent backups)
 ```
 
-Setiap deploy menyalin build ke folder rilis baru lalu mengganti symlink secara atomik, sehingga tidak
-ada momen subdomain kehilangan folder aktif. Tiga rilis terbaru disimpan; sisanya dipangkas otomatis.
-Saat project dihapus, symlink dan folder `.releases/<subdomain>` ikut dibersihkan.
+Each deploy copies the build to a new release folder and atomically swaps the symlink, so there
+is no moment when the subdomain loses its active folder. Three recent releases are kept; the rest
+are pruned automatically. When a project is deleted, the symlink and `.releases/<subdomain>` folder
+are cleaned up as well.
 
-### Custom domain & SSL
+### Custom Domain & SSL
 
-Domain kustom diatur per project dari halaman project (kolom `custom_domain`). Setelah disimpan:
+Custom domains are configured per project from the project page (`custom_domain` column). After saving:
+1. Create a **CNAME** `yourdomain.com` → `<subdomain>.only4.fun` (or A record to VPS IP).
+2. Backend registers that hostname via the Cloudflare API (`/zones/<zone>/custom_hostnames`) so an
+   edge certificate is auto-issued. This requires the **Cloudflare for SaaS** add-on and an API token
+   with `SSL and Certificates: Edit` permission (in addition to `Zone:DNS:Edit`).
+3. If registration fails, the domain is still saved and routing still works; the certificate can be
+   issued in the user's own Cloudflare zone (proxy to origin) or with a manual certificate.
 
-1. Buat **CNAME** `domain-anda.com` → `<subdomain>.only4.fun` (atau A ke IP VPS).
-2. Backend mendaftarkan hostname itu lewat API Cloudflare (`/zones/<zone>/custom_hostnames`) agar edge
-   certificate diterbitkan otomatis. Ini membutuhkan paket **Cloudflare for SaaS** dan API token dengan izin
-   `SSL and Certificates: Edit` (selain `Zone:DNS:Edit`).
-3. Bila pendaftaran gagal, domain tetap disimpan dan routing tetap jalan; sertifikat bisa diterbitkan di zona
-   Cloudflare milik user sendiri (proxy ke origin) atau dengan certificate manual.
+Without Cloudflare for SaaS, do not point a domain directly to the origin without TLS.
 
-Tanpa Cloudflare for SaaS, jangan arahkan domain langsung ke origin tanpa TLS.
+### Webhook Auto-Deploy
 
-### Webhook auto-deploy
+The project page shows a *payload URL* (`https://<host>/webhooks/github`) and a per-project secret.
+Register it in GitHub: **Settings → Webhooks → Add webhook**, content type `application/json`, event **push**.
+Every push to the default branch triggers a new build. The `X-Hub-Signature-256` signature is verified
+with the project secret, and this endpoint does not use sessions.
 
-Halaman project menampilkan *payload URL* (`https://<host>/webhooks/github`) dan secret per project. Daftarkan di
-GitHub: **Settings → Webhooks → Add webhook**, content type `application/json`, event **push**. Setiap push ke
-branch default memicu build baru. Signature `X-Hub-Signature-256` diverifikasi dengan secret project, dan endpoint
-ini tidak memakai session.
+### ZIP Upload
 
-### Upload ZIP
+New project → **Upload ZIP** creates a static project without a repository. Limits: 100 MB compressed,
+500 MB extracted, 20,000 entries; symlinks and path traversal are rejected. The archive must contain
+`index.html` at the root or inside the top-level folder. ZIP projects cannot be redeployed from a repo —
+create a new project for the next version.
 
-New project → **Upload ZIP** membuat project statis tanpa repository. Batas: 100 MB terkompresi, 500 MB setelah
-diekstrak, 20.000 entri; symlink dan path traversal ditolak. Arsip harus berisi `index.html` di root atau di dalam
-satu folder teratas. Project ZIP tidak bisa di-redeploy dari repo — buat project baru untuk versi berikutnya.
+### Periodic Database Backup
 
-### Backup database berkala
-
-Gunakan skrip yang memakai perintah `.backup` SQLite (aman saat server menulis):
+Use the script that uses the SQLite `.backup` command (safe while the server is writing):
 
 ```bash
 cd /opt/only4.fun/backend
 DB_PATH=/opt/only4.fun/backend/data/only4.fun.db ./scripts/backup-db.sh
 ```
 
-Jadwalkan lewat cron, misal tiap 6 jam dan simpan 14 backup terakhir (default skrip):
+Schedule via cron, e.g. every 6 hours, keeping the last 14 backups (script default):
 
 ```cron
 0 */6 * * * /opt/only4.fun/backend/scripts/backup-db.sh >> /var/log/only4.fun/backup.log 2>&1
 ```
 
-## Catatan
+## Notes
 
-- Wildcard SSL (`*.only4.fun`) otomatis dari Cloudflare Universal SSL (gratis)
-- Tidak perlu buat cert per subdomain — Cloudflare handle semua
-- Subdomain baru (misal `myproject.only4.fun`) langsung bisa diakses tanpa konfigurasi tambahan
-- Cloudflare cache bisa di-purge jika perlu: `curl -X POST "https://api.cloudflare.com/client/v4/zones/{zone_id}/purge_cache" -H "Authorization: Bearer {token}" -d '{"purge_everything":true}'`
-- Untuk SSR, proses Node.js di-start otomatis saat pertama kali diakses
-- Idle cleanup setiap 5 menit mematikan proses yang tidak diakses > 10 menit
+- Wildcard SSL (`*.only4.fun`) is automatic from Cloudflare Universal SSL (free)
+- No per-subdomain cert needed — Cloudflare handles all
+- New subdomains (e.g. `myproject.only4.fun`) work immediately without extra configuration
+- Cloudflare cache can be purged if needed: `curl -X POST "https://api.cloudflare.com/client/v4/zones/{zone_id}/purge_cache" -H "Authorization: Bearer {token}" -d '{"purge_everything":true}'`
+- For SSR, the Node.js process starts automatically on first access
+- Idle cleanup every 5 minutes kills processes not accessed for > 10 minutes

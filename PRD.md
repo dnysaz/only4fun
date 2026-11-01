@@ -1,149 +1,151 @@
 # PRD — only4.fun
 
-Static Site Hosting / Serverless (sederhana, mirip Vercel) dengan login GitHub, deploy dari Git repo, env vars, dan subdomain otomatis.
+Static Site Hosting / Serverless (simple, Vercel-like) with GitHub login, deploy from Git repo, env vars, and automatic subdomain.
 
 ---
 
-## 1. Tujuan
+## 1. Objective
 
-Membuat platform sederhana agar user bisa onlinekan situs statis/serverless dari Git repo, login via GitHub, dan langsung dapat subdomain `*.only4.fun`.
-
----
-
-## 2. Pengguna (Personas)
-
-| Tipe | Kebutuhan |
-|------|-----------|
-| User | Login GitHub, paste URL repo Git, isi env vars, dapatkan subdomain, lihat status deploy |
-| Admin (opsional) | Lihat daftar project, kontrol quota, logout user |
+Build a simple platform so users can publish static/serverless sites from a Git repo, log in via GitHub, and instantly get a `*.only4.fun` subdomain.
 
 ---
 
-## 3. Fitur Utama (MVP)
+## 2. Users (Personas)
 
-### 3.1 Autentikasi
-- Login hanya melalui GitHub OAuth.
-- Session disimpan di backend (cookie/JWT).
-- Frontend menampilkan "Login with GitHub".
+| Type | Needs |
+|------|-------|
+| User | GitHub login, paste Git repo URL, set env vars, get subdomain, view deploy status |
+| Admin (optional) | View project list, manage quotas, logout users |
 
-### 3.2 Deploy dari Git Repo
-- User paste URL repo Git (publc/private).
-- Backend clone repo.
-- Deteksi framework/build command (opsional default: `npm run build` / `npm run build` dengan output `dist` atau `out`).
-- Build di Docker container (isolasi).
-- Hasil build disimpan di shared storage.
+---
+
+## 3. Core Features (MVP)
+
+### 3.1 Authentication
+- Login only via GitHub OAuth
+- Session stored in backend (cookie/JWT)
+- Frontend shows "Login with GitHub" button
+
+### 3.2 Deploy from Git Repo
+- User pastes Git repo URL (public/private)
+- Backend clones repo
+- Detect framework/build command (optional default: `npm run build` with output `dist` or `out`)
+- Build in Docker container (isolation)
+- Save build output to shared storage
 
 ### 3.3 Environment Variables
-- User input key:value di UI sebelum/kurang lebih saat deploy.
-- ENV di-inject ke dalam proses build.
-- Tampilkan daftar env yang sudah di-set per project.
+- User inputs key:value pairs in UI before/during deploy
+- ENV injected into build process
+- Show list of env vars set per project
 
-### 3.4 Subdomain Otomatis
-- Setiap project dapat subdomain: `namaproject.only4.fun`.
-- DNS ditambahkan otomatis ke Cloudflare (via API).
-- Nginx reverse proxy diterapkan untuk routing subdomain.
+### 3.4 Automatic Subdomain
+- Each project gets subdomain: `projectname.only4.fun`
+- DNS added automatically to Cloudflare (via API)
+- Nginx reverse proxy configured for subdomain routing
 
 ### 3.5 Dashboard
-- Daftar project yang di-deploy.
-- Status deploy (pending/building/deployed/failed).
-- Tombol redeploy, delete project, edit env.
+- List of deployed projects
+- Deploy status (pending/building/deployed/failed)
+- Buttons: redeploy, delete project, edit env vars
 
 ---
 
-## 4. Arsitektur Teknis
+## 4. Technical Architecture
 
 ```
 Frontend        Backend API         Infrastructure
 (Next.js)       (Go + Gin)          (Docker + Nginx + Cloudflare)
-   │                  │                      │
-   └─► GitHub OAuth ─► Repo Clone ─► Build ─► Serve via Nginx
-   └─► Env Manager ─► Build Queue ─► Static Files ─► *.only4.fun
+    │                  │                      │
+    │                  │                      │
+    └─► GitHub OAuth ─► Repo Clone ─► Build ─► Serve via Nginx
+    │                  │                      │
+    └─► Env Manager ─► Build Queue ─► Static Files ─► *.only4.fun
 ```
 
-| Layer | Tech Stack | Tugas |
-|-------|-----------|-------|
-| Frontend | Next.js (App Router) | UI login, dashboard, form deploy, env input |
+| Layer | Tech Stack | Purpose |
+|-------|------------|---------|
+| Frontend | Next.js (App Router) | Login UI, dashboard, deploy form, env input |
 | Backend | Go + Gin | API, GitHub OAuth, build orchestrator |
 | Builder | Docker | Clone repo, build static assets |
-| Storage | Local disk / shared volume | Hasil build static files |
+| Storage | Local disk / shared volume | Static files output |
 | Web Server | Nginx | Reverse proxy per subdomain |
-| DNS | Cloudflare API | Otomatis buat A/CNAME record `*.only4.fun` |
+| DNS | Cloudflare API | Auto-create A/CNAME records for `*.only4.fun` |
 
 ---
 
-## 5. Alur Deploy (User Journey)
+## 5. Deploy Flow (User Journey)
 
-1. User buka `only4.fun`, klik "Login with GitHub".
-2. Redirect ke GitHub OAuth, kembali ke `only4.fun/dashboard`.
-3. User klik "New Project", isi:
-   - URL repo Git
-   - Nama project (jadi subdomain)
+1. User opens `only4.fun`, clicks "Login with GitHub"
+2. Redirects to GitHub OAuth, returns to `only4.fun/dashboard`
+3. User clicks "New Project", fills:
+   - Git repo URL
+   - Project name (becomes subdomain)
    - Environment variables (key:value, optional)
-4. Backend clone repo → build dengan Docker → simpan static files.
-5. Backend tambahkan DNS record di Cloudflare untuk `namaproject.only4.fun`.
-6. Nginx reload config, site online.
-7. User buka `namaproject.only4.fun`, lihat situsnya.
+4. Backend clones repo → builds with Docker → saves static files
+5. Backend adds DNS record to Cloudflare for `namaproject.only4.fun`
+6. Nginx reloads config, site goes live
+7. User opens `namaproject.only4.fun`, sees their site
 
 ---
 
 ## 6. API Endpoints (Backend Go Gin)
 
-| Endpoint | Method | Tugas |
-|----------|--------|-------|
-| `/auth/github/login` | GET | Redirect ke GitHub OAuth |
-| `/auth/github/callback` | GET | Handle callback, buat session |
-| `/api/projects` | GET | Daftar project user |
-| `/api/projects` | POST | Buat project baru (trigger deploy) |
-| `/api/projects/:id` | GET | Detail project + status |
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/auth/github/login` | GET | Redirect to GitHub OAuth |
+| `/auth/github/callback` | GET | Handle callback, create session |
+| `/api/projects` | GET | List user projects |
+| `/api/projects` | POST | Create new project (triggers deploy) |
+| `/api/projects/:id` | GET | Project detail + status |
 | `/api/projects/:id/deploy` | POST | Redeploy |
-| `/api/projects/:id/env` | GET/POST/PATCH | Kelola env vars |
-| `/api/projects/:id` | DELETE | Hapus project |
-| `/api/auth/me` | GET | Info user login |
+| `/api/projects/:id/env` | GET/POST/PATCH | Manage env vars |
+| `/api/projects/:id` | DELETE | Delete project |
+| `/api/auth/me` | GET | Logged-in user info |
 
 ---
 
-## 7. Non-Fungsional
+## 7. Non-Functional Requirements
 
-- **Build isolation**: Setiap build di container terpisah (Docker).
-- **Subdomain wildcard**: `*.only4.fun` di Cloudflare.
-- **Rate limit**: Hindari abuse clone repo berulang.
-- **Health check**: Endpoint `/health` untuk monitoring.
+- **Build isolation**: Each build runs in a separate Docker container
+- **Subdomain wildcard**: `*.only4.fun` in Cloudflare
+- **Rate limit**: Prevent abuse of repeated repo cloning
+- **Health check**: `/health` endpoint for monitoring
 
 ---
 
 ## 8. Out of Scope (v1)
 
-- Custom domain (user beli sendiri).
-- CI/CD otomatis pada push ke GitHub (webhook).
-- Database production-grade (bisa mulai SQLite/boltdb dulu).
-- Multi-region / auto-scaling.
-- Server-side rendering / dynamic API routes (hanya static).
+- Custom domain (user provides their own)
+- CI/CD auto-deploy on GitHub push (webhook)
+- Production-grade database (SQLite/boltdb for now)
+- Multi-region / auto-scaling
+- Server-side rendering / dynamic API routes (static only)
 
 ---
 
-## 9. Timeline (Rencana Awal)
+## 9. Timeline (Initial Plan)
 
-| Fase | Tugas | Estimasi |
-|------|-------|----------|
-| 1 | Setup repo, Go Gin backend dasar, GitHub OAuth | 1-2 hari |
-| 2 | Frontend Next.js login + dashboard dasar | 1-2 hari |
-| 3 | Build pipeline (Docker clone + build static) | 2-3 hari |
-| 4 | Subdomain + Cloudflare DNS + Nginx routing | 1-2 hari |
-| 5 | Env vars, redeploy, delete, polishing | 1-2 hari |
-| **Total** | **MVP siap coba** | **6-11 hari** |
-
----
-
-## 10. Risiko & Mitigasi
-
-| Risiko | Mitigasi |
-|--------|----------|
-| GitHub OAuth rate limit | Cache token, jangan panggil API berlebihan |
-| Build gagal / timeout | Batasi waktu build, tampilkan log error ke user |
-| Subdomain konflik | Validasi nama project unik di backend |
-| Keamanan clone repo private | Gunakan GitHub token atau deploy key |
-| Nginx reload sering | Debounce reload, reload sekali per batch deploy |
+| Phase | Task | Est. |
+|-------|------|------|
+| 1 | Setup repo, Go Gin backend base, GitHub OAuth | 1-2 days |
+| 2 | Frontend Next.js login + dashboard base | 1-2 days |
+| 3 | Build pipeline (Docker clone + build static) | 2-3 days |
+| 4 | Subdomain + Cloudflare DNS + Nginx routing | 1-2 days |
+| 5 | Env vars, redeploy, delete, polishing | 1-2 days |
+| **Total** | **MVP ready to test** | **6-11 days** |
 
 ---
 
-*Dibuat sebagai referensi bersama saat membangun only4.fun. Dokumen ini bisa diperbarui seiring perkembangan.*
+## 10. Risks & Mitigations
+
+| Risk | Mitigation |
+|------|------------|
+| GitHub OAuth rate limit | Cache tokens, don't call API excessively |
+| Build fails / timeout | Limit build time, show error logs to user |
+| Subdomain conflict | Validate unique project name in backend |
+| Private repo clone without trust | Use GitHub token or deploy key |
+| Nginx reload too often | Debounce reload, reload once per batch deploy |
+
+---
+
+*Created as shared reference while building only4.fun. This document may be updated as development progresses.*
