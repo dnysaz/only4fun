@@ -1,0 +1,318 @@
+/* Halaman Docs memakai pembungkus bersama di ../../ui.module.css supaya
+   padding, lebar, dan jarak atas identik dengan /dashboard. */
+.layout {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 720px);
+  align-items: start;
+  gap: 40px;
+  padding: 0 0 24px;
+}
+
+/* Left sidebar */
+.sidebar {
+  position: sticky;
+  top: 28px;
+  width: 220px;
+  max-height: calc(100vh - 56px);
+  overflow-y: auto;
+  padding-right: 8px;
+  transition: width 0.2s ease;
+}
+
+.sidebarCollapsed {
+  width: 48px;
+  overflow: visible;
+}
+
+.sidebarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding-left: 4px;
+  min-height: 28px;
+  gap: 8px;
+}
+
+.sidebarCollapsed .sidebarHeader {
+  justify-content: center;
+  padding-left: 0;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.toggleBtn {
+  background: transparent;
+  border: 1px solid #e2e2e2;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 13pt;
+  color: #3d3d3d;
+  transition: background 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.toggleBtn:hover {
+  background: #f5f5f5;
+  border-color: #ccc;
+}
+
+.sidebarTitle {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: #6b6b6b;
+  padding-left: 4px;
+}
+
+.sidebarIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  font-size: 11.5pt;
+  flex-shrink: 0;
+}
+
+.sidebarLabel {
+  margin-left: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebarList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sidebarItem {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #2e2e2e;
+  text-decoration: none;
+  transition: color 0.18s ease, background 0.15s;
+  border-radius: 6px;
+  margin-left: 0;
+}
+
+.sidebarItem:hover {
+  color: #171717;
+  background: #f6f6f6;
+  text-decoration: none;
+}
+
+.sidebarItemActive {
+  color: #171717;
+  font-weight: 600;
+  background: #f0f0f0;
+}
+
+.sidebarItemActive:hover {
+  color: #171717;
+  background: #f0f0f0;
+}
+
+/* Artikel: konten langsung di halaman, tanpa kartu putih terpisah. */
+.content {
+  min-width: 0;
+  width: 100%;
+}
+
+/* Panel daftar isi untuk mobile; tampil hanya saat sidebar kiri disembunyikan. */
+.mobileNav {
+  display: none;
+  background: transparent;
+  border: none;
+  border-top: 1px solid #e4e4e4;
+  border-bottom: 1px solid #e4e4e4;
+  border-radius: 0;
+  padding: 12px 0;
+}
+
+.mobileNavSummary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 11pt;
+  font-weight: 600;
+  color: #171717;
+  list-style: none;
+}
+
+.mobileNavSummary::-webkit-details-marker {
+  display: none;
+}
+
+.mobileNavSummary::after {
+  content: "▾";
+  color: #8a8a8a;
+  font-size: 10pt;
+  transition: transform 0.15s ease;
+}
+
+.mobileNav[open] .mobileNavSummary::after {
+  transform: rotate(180deg);
+}
+
+.mobileNavPanel {
+  margin-top: 12px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.mobileNavPanel .sidebarItem {
+  padding: 8px;
+  font-size: 10.5pt;
+}
+
+.article {
+  min-width: 0;
+  width: 100%;
+  background: transparent;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Tautan di dalam artikel dokumentasi: biru, tanpa garis bawah saat hover. */
+.article a {
+  color: #2563eb;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.article a:hover {
+  color: #2563eb;
+}
+
+.toc {
+  width: 200px;
+  position: sticky;
+  top: 28px;
+  padding-top: 6px;
+}
+
+.tocTitle {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: #6b6b6b;
+  margin-bottom: 10px;
+}
+
+.tocList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 1px solid #ececec;
+}
+
+.tocItem {
+  display: block;
+  padding: 5px 0 5px 12px;
+  margin-left: -1px;
+  border-left: 2px solid transparent;
+  font-size: 10pt;
+  line-height: 1.45;
+  color: #3d3d3d;
+  text-decoration: none;
+  transition: color 0.18s ease, border-left-color 0.18s ease;
+}
+
+.tocItem:hover {
+  color: #2563eb;
+  border-left-color: #93c5fd;
+}
+
+.tocItemActive {
+  color: #171717;
+  font-weight: 600;
+  border-left-color: #171717;
+}
+
+.tocItemActive:hover {
+  color: #2563eb;
+}
+
+.heading {
+  scroll-margin-top: 28px;
+  position: relative;
+}
+
+.heading:hover .anchor {
+  opacity: 1;
+}
+
+.anchor {
+  opacity: 0;
+  margin-left: 8px;
+  font-weight: 400;
+  color: #c4c4c4;
+  text-decoration: none;
+  transition: opacity 0.15s ease, color 0.15s ease;
+}
+
+.anchor:hover {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+.lead {
+  font-size: 13pt;
+  line-height: 1.7;
+  color: #4a4a4a;
+  margin: 0 0 28px;
+}
+
+@media (max-width: 1280px) {
+  .sidebar {
+    display: none;
+  }
+  .layout {
+    grid-template-columns: minmax(0, 720px);
+    gap: 14px;
+  }
+  .mobileNav {
+    display: block;
+  }
+}
+
+@media (max-width: 1080px) {
+  .toc {
+    display: none;
+  }
+  .layout {
+    grid-template-columns: minmax(0, 720px);
+    gap: 14px;
+  }
+  .article {
+    max-width: 720px;
+    padding: 0;
+  }
+}
+
+@media (max-width: 560px) {
+  .layout {
+    padding: 0 0 24px;
+  }
+  .article {
+    padding: 0;
+  }
+  .mobileNav {
+    padding: 12px 0;
+  }
+}

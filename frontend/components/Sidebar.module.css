@@ -1,0 +1,422 @@
+.shell {
+  display: flex;
+  min-height: 100vh;
+  min-height: 100svh;
+  background: #fafafa;
+}
+
+.publicShell {
+  flex-direction: column;
+}
+
+.sidebar {
+  width: 232px;
+  flex: 0 0 232px;
+  background: #ffffff;
+  border-right: 1px solid #eaeaea;
+  padding: 18px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
+  box-sizing: border-box;
+  transition: width 0.2s ease, flex-basis 0.2s ease;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+.sidebarCollapsed {
+  width: 56px;
+  flex: 0 0 56px;
+  padding: 18px 8px;
+}
+
+.sidebarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 8px 0;
+  min-height: 32px;
+  gap: 8px;
+}
+
+.sidebarCollapsed .sidebarHeader {
+  justify-content: center;
+  padding: 4px 0 0;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  font-size: 14pt;
+  font-weight: 700;
+  color: #171717;
+  text-decoration: none;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+/* Hover judul sidebar: tetap hitam (bukan biru dari aturan global) dengan garis bawah. */
+.brand:hover {
+  color: #171717;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.toggleBtn {
+  background: transparent;
+  border: 1px solid #e2e2e2;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12pt;
+  color: #3d3d3d;
+  transition: background 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.toggleBtn:hover {
+  background: #f5f5f5;
+  border-color: #ccc;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.section {
+  font-size: 8.5pt;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: #6b6b6b;
+  padding: 10px 10px 6px;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 10.5pt;
+  color: #3d3d3d;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.item:hover {
+  background: #f5f5f5;
+  color: #171717;
+}
+
+/* Tombol (Logout) memakai gaya item yang sama dengan tautan navigasi:
+   reset style bawaan <button> agar tampil identik. */
+button.item {
+  width: 100%;
+  background: transparent;
+  border: none;
+  /* Hanya keluarga font yang perlu diwarisi; ukuran/berat sudah diatur .item. */
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.item:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.item svg {
+  flex-shrink: 0;
+}
+
+/* Garis pemisah antara menu utama dan tautan tambahan. */
+.divider {
+  height: 1px;
+  background: #e6e6e6;
+  margin: 10px 10px;
+}
+
+/* Tautan eksternal (Moogo): label di kiri, panah kanan-atas di ujung kanan. */
+.externalItem {
+  color: #4a4a4a;
+}
+
+.externalItem:hover {
+  color: #171717;
+  background: #f5f5f5;
+  text-decoration: none;
+}
+
+.externalArrow {
+  margin-left: auto;
+  opacity: 0.55;
+}
+
+.active {
+  background: #f0f0f0;
+  color: #171717;
+  font-weight: 600;
+}
+
+.signIn {
+  color: #171717;
+  font-weight: 500;
+}
+
+/* Tautan legal kecil di atas tombol Logout. */
+.legal {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px 8px;
+  border-top: 1px solid #ececec;
+  margin-top: 4px;
+}
+
+.legalLink {
+  font-size: 9.5pt;
+  color: #6b6b6b;
+  text-decoration: none;
+  padding: 3px 0;
+  transition: color 0.15s ease;
+}
+
+.legalLink:hover {
+  color: #171717;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  text-decoration: none;
+  color: #171717;
+  transition: background 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.account:hover {
+  background: #f5f5f5;
+}
+
+.avatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.accountName {
+  font-size: 10pt;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.publicBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  background: #ffffff;
+  border-bottom: 1px solid #eaeaea;
+}
+
+.publicBrand {
+  font-size: 14pt;
+  font-weight: 700;
+  color: #171717;
+  text-decoration: none;
+}
+
+.publicNav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.publicNav a {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 10pt;
+  color: #3d3d3d;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.publicNav a:hover {
+  background: #f5f5f5;
+}
+
+.publicNavActive {
+  background: #f0f0f0;
+  font-weight: 600;
+}
+
+/* Selector sengaja lebih spesifik dari `.publicNav a` supaya warna tombol
+   tidak tertimpa warna link biasa (dulu teks jadi gelap di atas latar hitam). */
+.publicNav a.publicCta {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border-radius: 6px;
+  font-size: 10pt;
+  font-weight: 600;
+  color: #ffffff;
+  background: #111111;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.publicNav a.publicCta:hover {
+  background: #2b2b2b;
+  color: #ffffff;
+}
+
+.publicCta svg {
+  flex: none;
+}
+
+/* Konten memakai permukaan putih supaya teks abu-abu tetap kontras;
+   sidebar dan latar shell tetap sedikit abu sebagai pemisah. */
+.main {
+  flex: 1;
+  min-width: 0;
+  background: #ffffff;
+}
+
+/* Elemen khusus mobile disembunyikan di desktop. */
+.mobileBar,
+.backdrop {
+  display: none;
+}
+
+.mobileAvatar {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+}
+
+@media (max-width: 900px) {
+  .shell {
+    flex-direction: column;
+  }
+
+  /* Bar atas mobile */
+  .mobileBar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    padding: 8px 12px;
+    background: #ffffff;
+    border-bottom: 1px solid #eaeaea;
+  }
+
+  .mobileToggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 8px;
+    border: 1px solid #e2e2e2;
+    background: #ffffff;
+    color: #171717;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .mobileToggle:hover {
+    background: #f5f5f5;
+    border-color: #ccc;
+  }
+
+  /* Sidebar jadi drawer geser dari kiri */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 268px;
+    max-width: 82vw;
+    flex-basis: auto;
+    height: 100dvh;
+    padding: 18px 12px;
+    z-index: 60;
+    transform: translateX(-100%);
+    visibility: hidden;
+    box-shadow: 0 0 24px rgba(0, 0, 0, 0.14);
+    transition: transform 0.2s ease, visibility 0.2s ease;
+    overflow-y: auto;
+  }
+
+  .sidebarMobileOpen {
+    transform: translateX(0);
+    visibility: visible;
+  }
+
+  .backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    border: none;
+    padding: 0;
+    background: rgba(0, 0, 0, 0.35);
+    cursor: pointer;
+  }
+
+  .main {
+    width: 100%;
+  }
+
+  /* Bar publik (docs, help, support) boleh turun baris di layar sempit. */
+  .publicBar {
+    flex-wrap: wrap;
+    row-gap: 8px;
+    padding: 10px 14px;
+  }
+
+  .publicNav {
+    flex-wrap: wrap;
+    row-gap: 6px;
+  }
+}
+
+@media (max-width: 420px) {
+  .publicNav a,
+  .publicNav a.publicCta {
+    padding: 6px 10px;
+    font-size: 9.5pt;
+  }
+}

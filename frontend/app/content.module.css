@@ -1,0 +1,22 @@
+/* Halaman bacaan (Help & Support) memakai pembungkus bersama dari
+   ../../ui.module.css, sehingga padding dan posisi sama dengan /dashboard.
+   File ini hanya berisi gaya isi artikel: kartu putih dihapus, tautan tetap
+   biru dengan garis bawah saat hover. */
+
+.article {
+  background: transparent;
+  padding: 0;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+/* Tautan di dalam artikel (Help & Support): biru, dan bergaris bawah saat hover. */
+.article a {
+  color: #2563eb;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.article a:hover {
+  color: #2563eb;
+}

@@ -1,0 +1,23 @@
+/* Reset margin bawaan browser supaya layout full-height tidak menyisakan celah putih. */
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+/* Tautan: hitam tanpa garis, biru saat hover (tanpa garis bawah). */
+a {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+a:hover {
+  color: #2563eb;
+}
+
+a:focus-visible {
+  outline: 2px solid #93c5fd;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
