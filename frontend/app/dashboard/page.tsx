@@ -41,10 +41,15 @@ export default function DashboardPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState("")
-  const [busyId, setBusyId] = useState<string | null>(null)
+  const [busyIds, setBusyIds] = useState<Set<string>>(new Set())
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [search, setSearch] = useState("")
-  const [viewMode, setViewMode] = useState<"list" | "grid">("list")
+  const [viewMode, setViewMode] = useState<"list" | "grid">(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("dashboard-view-mode") as "list" | "grid") || "list"
+    }
+    return "list"
+  })
 
   const loadProjects = useCallback(async () => {
     const res = await apiFetch("/api/projects")
@@ -67,8 +72,18 @@ export default function DashboardPage() {
     load()
   }, [loadProjects])
 
+  // Auto-refresh when any project is building/pending.
+  useEffect(() => {
+    if (projects.some((p) => p.status === "pending" || p.status === "building")) {
+      const timer = setInterval(() => {
+        loadProjects()
+      }, 3000)
+      return () => clearInterval(timer)
+    }
+  }, [projects, loadProjects])
+
   const handleRedeploy = async (id: string) => {
-    setBusyId(id)
+    setBusyIds((prev) => new Set(prev).add(id))
     setError("")
     try {
       const res = await apiFetch(`/api/projects/${id}/deploy`, { method: "POST" })
@@ -83,12 +98,16 @@ export default function DashboardPage() {
       }
       await loadProjects()
     } finally {
-      setBusyId(null)
+      setBusyIds((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
     }
   }
 
   const performDelete = async (id: string) => {
-    setBusyId(id)
+    setBusyIds((prev) => new Set(prev).add(id))
     setError("")
     try {
       const res = await apiFetch(`/api/projects/${id}`, { method: "DELETE" })
@@ -98,7 +117,11 @@ export default function DashboardPage() {
       }
       await loadProjects()
     } finally {
-      setBusyId(null)
+      setBusyIds((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
     }
   }
 
@@ -175,14 +198,20 @@ export default function DashboardPage() {
             <div className={ui.viewToggle}>
               <button
                 className={`${ui.viewToggleBtn} ${viewMode === "list" ? ui.viewToggleBtnActive : ""}`}
-                onClick={() => setViewMode("list")}
+                onClick={() => {
+                  setViewMode("list")
+                  localStorage.setItem("dashboard-view-mode", "list")
+                }}
                 aria-label="List view"
               >
                 List
               </button>
               <button
                 className={`${ui.viewToggleBtn} ${viewMode === "grid" ? ui.viewToggleBtnActive : ""}`}
-                onClick={() => setViewMode("grid")}
+                onClick={() => {
+                  setViewMode("grid")
+                  localStorage.setItem("dashboard-view-mode", "grid")
+                }}
                 aria-label="Grid view"
               >
                 Grid
@@ -278,10 +307,10 @@ export default function DashboardPage() {
                             e.stopPropagation()
                             handleRedeploy(p.id)
                           }}
-                          disabled={busyId === p.id}
+                          disabled={busyIds.has(p.id)}
                           className={`${ui.btn} ${ui.btnTiny}`}
                         >
-                          {busyId === p.id ? "Working..." : "Redeploy"}
+                          {busyIds.has(p.id) ? "Working..." : "Redeploy"}
                         </button>
                       )}
                       <button
@@ -289,7 +318,7 @@ export default function DashboardPage() {
                           e.stopPropagation()
                           setDeleteTarget(p.id)
                         }}
-                        disabled={busyId === p.id}
+                        disabled={busyIds.has(p.id)}
                         className={`${ui.btn} ${ui.btnTiny} ${ui.btnDanger}`}
                       >
                         Delete
@@ -348,10 +377,10 @@ export default function DashboardPage() {
                               e.stopPropagation()
                               handleRedeploy(p.id)
                             }}
-                            disabled={busyId === p.id}
+                            disabled={busyIds.has(p.id)}
                             className={`${ui.btn} ${ui.btnTiny}`}
                           >
-                            {busyId === p.id ? "Working..." : "Redeploy"}
+                            {busyIds.has(p.id) ? "Working..." : "Redeploy"}
                           </button>
                         )}
                         <button
@@ -359,7 +388,7 @@ export default function DashboardPage() {
                             e.stopPropagation()
                             setDeleteTarget(p.id)
                           }}
-                          disabled={busyId === p.id}
+                          disabled={busyIds.has(p.id)}
                           className={`${ui.btn} ${ui.btnTiny} ${ui.btnDanger}`}
                         >
                           Delete
