@@ -56,7 +56,43 @@ func SiteHandler(cfg *config.Config, projectStore *database.ProjectStore, pm *Pr
 			return
 		}
 		if project.Status != "deployed" {
-			c.String(http.StatusServiceUnavailable, "site is being prepared (status: %s)", project.Status)
+			c.Header("Content-Type", "text/html; charset=utf-8")
+			c.Header("Retry-After", "30")
+			c.String(http.StatusServiceUnavailable, `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Site is being prepared</title>
+<meta http-equiv="refresh" content="30">
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #fafafa; color: #171717; }
+  .card { text-align: center; max-width: 480px; padding: 40px; }
+  .spinner { width: 40px; height: 40px; border: 3px solid #e2e2e2; border-top-color: #2563eb; border-radius: 50%%; animation: spin 0.8s linear infinite; margin: 0 auto 24px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  h1 { font-size: 20px; margin: 0 0 8px; }
+  p { color: #8a8a8a; font-size: 14px; line-height: 1.6; margin: 0 0 16px; }
+  .status { display: inline-block; padding: 4px 12px; border-radius: 999px; background: #f0f7ff; color: #2563eb; font-size: 12px; font-weight: 600; margin-bottom: 16px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="spinner"></div>
+  <span class="status">%s</span>
+  <h1>Site is being prepared</h1>
+  <p>Your site <strong>%s.only4.fun</strong> is currently being built. This page will automatically refresh every 30 seconds. Please check again shortly.</p>
+  <p style="font-size:12px;color:#aaa;">Status: %s</p>
+</div>
+<script>
+  (function check() {
+    fetch(window.location.href, { method: 'HEAD' })
+      .then(r => { if (r.ok) window.location.reload(); })
+      .catch(() => {});
+    setTimeout(check, 10000);
+  })();
+</script>
+</body>
+</html>`, project.Status, project.Subdomain, project.Status)
 			return
 		}
 

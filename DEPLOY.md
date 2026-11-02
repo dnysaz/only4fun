@@ -285,10 +285,14 @@ server {
 
 ## Cloudflare DNS Setup
 
+**IMPORTANT:** Set up a wildcard record `*` so that ALL subdomains (including newly created projects) resolve immediately without waiting for DNS propagation:
+
 ```
 Type: A     Name: @     Content: <VPS_IP>     Proxy: Proxied
 Type: A     Name: *     Content: <VPS_IP>     Proxy: Proxied
 ```
+
+With the wildcard record, new subdomains like `ytg.only4.fun` work instantly — no per-subdomain DNS record needed, and no 5-minute propagation delay. The backend still creates individual DNS records via Cloudflare API (for custom domains), but the wildcard ensures immediate availability.
 
 ## Cloudflare SSL Settings
 
