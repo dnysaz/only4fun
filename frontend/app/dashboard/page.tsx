@@ -44,12 +44,14 @@ export default function DashboardPage() {
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set())
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [search, setSearch] = useState("")
-  const [viewMode, setViewMode] = useState<"list" | "grid">(() => {
-    if (typeof window !== "undefined") {
-      return (localStorage.getItem("dashboard-view-mode") as "list" | "grid") || "list"
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list")
+
+  useEffect(() => {
+    const saved = localStorage.getItem("dashboard-view-mode") as "list" | "grid" | null
+    if (saved === "list" || saved === "grid") {
+      setViewMode(saved)
     }
-    return "list"
-  })
+  }, [])
 
   const loadProjects = useCallback(async () => {
     const res = await apiFetch("/api/projects")
