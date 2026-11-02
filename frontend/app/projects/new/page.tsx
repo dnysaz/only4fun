@@ -556,56 +556,6 @@ export default function NewProjectPage() {
 
             <div className={styles.section}>
               <div className={styles.sectionHead}>
-                <h2 className={styles.sectionTitle}>Environment variables</h2>
-              </div>
-              <p className={styles.sectionHint}>Optional. Add key/value pairs needed at build time (e.g. API keys). Leave empty if not needed.</p>
-              {envVars.map((ev, idx) => (
-                <div key={idx} style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
-                  <input
-                    className={styles.input}
-                    placeholder="KEY"
-                    value={ev.key}
-                    onChange={(e) => {
-                      const next = [...envVars]
-                      next[idx] = { ...next[idx], key: e.target.value }
-                      setEnvVars(next)
-                    }}
-                    style={{ flex: 1 }}
-                  />
-                  <input
-                    className={styles.input}
-                    placeholder="value"
-                    type="password"
-                    value={ev.value}
-                    onChange={(e) => {
-                      const next = [...envVars]
-                      next[idx] = { ...next[idx], value: e.target.value }
-                      setEnvVars(next)
-                    }}
-                    style={{ flex: 2 }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setEnvVars(envVars.filter((_, i) => i !== idx))}
-                    style={{ background: "none", border: "none", cursor: "pointer", color: "#c5221f", fontSize: "16px", padding: "0 4px" }}
-                    aria-label="Remove"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-              <button
-                type="button"
-                onClick={() => setEnvVars([...envVars, { key: "", value: "" }])}
-                className={styles.more}
-                style={{ marginTop: 4 }}
-              >
-                + Add variable
-              </button>
-            </div>
-
-            <div className={styles.section}>
-              <div className={styles.sectionHead}>
                 <h2 className={styles.sectionTitle}>Review</h2>
               </div>
               <p className={styles.sectionHint}>One last look before it goes live.</p>
