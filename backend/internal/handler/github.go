@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -99,6 +100,70 @@ func (h *GitHubHandler) GetRepoContents(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"contents": result})
 }
 
+// GetRepoReadme mengambil isi README repo dari GitHub API.
+func (h *GitHubHandler) GetRepoReadme(c *gin.Context) {
+	session, ok := h.sessionFromRequest(c)
+	if !ok {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid session"})
+		return
+	}
+
+	owner := c.Param("owner")
+	repo := c.Param("repo")
+	if owner == "" || repo == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "owner and repo are required"})
+		return
+	}
+
+	base := h.apiBase
+	if base == "" {
+		base = defaultGitHubAPIBase
+	}
+	apiURL := fmt.Sprintf("%s/repos/%s/%s/readme", base, owner, repo)
+
+	req, err := http.NewRequestWithContext(c.Request.Context(), "GET", apiURL, nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create the GitHub request"})
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+session.Token)
+	req.Header.Set("Accept", "application/vnd.github+json")
+
+	resp, err := (&http.Client{Timeout: 15 * time.Second}).Do(req)
+	if err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to reach GitHub"})
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusNotFound {
+		c.JSON(http.StatusOK, gin.H{"readme": "", "found": false})
+		return
+	}
+	if resp.StatusCode != http.StatusOK {
+		c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("GitHub rejected the request (status %d)", resp.StatusCode)})
+		return
+	}
+
+	var data map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": "failed to read readme data"})
+		return
+	}
+
+	content, _ := data["content"].(string)
+	encoding, _ := data["encoding"].(string)
+	if encoding == "base64" && content != "" {
+		// Remove newlines from base64 content
+		content = strings.ReplaceAll(content, "\n", "")
+		decoded, err := base64.StdEncoding.DecodeString(content)
+		if err == nil {
+			content = string(decoded)
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"readme": content, "found": true})
+}
 func getFloat(v interface{}) float64 {
 	if f, ok := v.(float64); ok {
 		return f

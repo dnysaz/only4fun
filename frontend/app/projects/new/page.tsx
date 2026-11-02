@@ -47,6 +47,9 @@ export default function NewProjectPage() {
   const [previewRepo, setPreviewRepo] = useState<Repo | null>(null)
   const [repoContents, setRepoContents] = useState<{ name: string; type: string; size: number; path: string }[]>([])
   const [loadingContents, setLoadingContents] = useState(false)
+  const [previewTab, setPreviewTab] = useState<"code" | "readme">("code")
+  const [readmeContent, setReadmeContent] = useState("")
+  const [loadingReadme, setLoadingReadme] = useState(false)
 
   useEffect(() => {
     if (!duplicate) return
@@ -157,17 +160,28 @@ export default function NewProjectPage() {
     const parts = repo.full_name.split("/")
     if (parts.length < 2) return
     setLoadingContents(true)
+    setLoadingReadme(true)
     setRepoContents([])
+    setReadmeContent("")
+    setPreviewTab("code")
     try {
-      const res = await apiFetch(`/api/github/repos/${parts[0]}/${parts[1]}/contents`)
-      if (res.ok) {
-        const data = await res.json()
+      const [contentsRes, readmeRes] = await Promise.all([
+        apiFetch(`/api/github/repos/${parts[0]}/${parts[1]}/contents`),
+        apiFetch(`/api/github/repos/${parts[0]}/${parts[1]}/readme`),
+      ])
+      if (contentsRes.ok) {
+        const data = await contentsRes.json()
         setRepoContents(data.contents || [])
+      }
+      if (readmeRes.ok) {
+        const data = await readmeRes.json()
+        setReadmeContent(data.readme || "")
       }
     } catch {
       // ignore
     } finally {
       setLoadingContents(false)
+      setLoadingReadme(false)
     }
   }
 
@@ -695,38 +709,100 @@ export default function NewProjectPage() {
                 {previewRepo.full_name} · {previewRepo.private ? "private" : "public"}
               </p>
 
-              {loadingContents ? (
-                <p style={{ color: "#8a8a8a", fontSize: "11pt" }}>Loading contents...</p>
-              ) : repoContents.length === 0 ? (
-                <p style={{ color: "#8a8a8a", fontSize: "11pt" }}>No files found or empty repository.</p>
-              ) : (
-                <div style={{ border: "1px solid #e9e9e9", borderRadius: 8, overflow: "hidden", marginBottom: 16 }}>
-                  {repoContents.map((item, idx) => (
-                    <div
-                      key={item.path}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        padding: "8px 12px",
-                        borderBottom: idx < repoContents.length - 1 ? "1px solid #f0f0f0" : "none",
-                        fontSize: "11pt",
-                      }}
-                    >
-                      <span style={{ color: item.type === "dir" ? "#2563eb" : "#8a8a8a", fontSize: "14px" }}>
-                        {item.type === "dir" ? "📁" : "📄"}
-                      </span>
-                      <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {item.name}
-                      </span>
-                      {item.type === "file" && (
-                        <span style={{ fontSize: "9pt", color: "#aaa" }}>
-                          {(item.size / 1024).toFixed(1)} KB
+              <div style={{ display: "flex", gap: 4, marginBottom: 16, borderBottom: "1px solid #e9e9e9" }}>
+                <button
+                  type="button"
+                  onClick={() => setPreviewTab("code")}
+                  style={{
+                    padding: "8px 16px",
+                    border: "none",
+                    borderBottom: previewTab === "code" ? "2px solid #171717" : "2px solid transparent",
+                    background: "transparent",
+                    cursor: "pointer",
+                    fontSize: "11pt",
+                    fontWeight: previewTab === "code" ? 600 : 400,
+                    color: previewTab === "code" ? "#171717" : "#8a8a8a",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  Code
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewTab("readme")}
+                  style={{
+                    padding: "8px 16px",
+                    border: "none",
+                    borderBottom: previewTab === "readme" ? "2px solid #171717" : "2px solid transparent",
+                    background: "transparent",
+                    cursor: "pointer",
+                    fontSize: "11pt",
+                    fontWeight: previewTab === "readme" ? 600 : 400,
+                    color: previewTab === "readme" ? "#171717" : "#8a8a8a",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  Readme
+                </button>
+              </div>
+
+              {previewTab === "code" ? (
+                loadingContents ? (
+                  <p style={{ color: "#8a8a8a", fontSize: "11pt" }}>Loading contents...</p>
+                ) : repoContents.length === 0 ? (
+                  <p style={{ color: "#8a8a8a", fontSize: "11pt" }}>No files found or empty repository.</p>
+                ) : (
+                  <div style={{ border: "1px solid #e9e9e9", borderRadius: 8, overflow: "hidden", marginBottom: 16 }}>
+                    {repoContents.map((item, idx) => (
+                      <div
+                        key={item.path}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 8,
+                          padding: "8px 12px",
+                          borderBottom: idx < repoContents.length - 1 ? "1px solid #f0f0f0" : "none",
+                          fontSize: "11pt",
+                        }}
+                      >
+                        <span style={{ color: item.type === "dir" ? "#2563eb" : "#8a8a8a", fontSize: "14px" }}>
+                          {item.type === "dir" ? "📁" : "📄"}
                         </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                        <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {item.name}
+                        </span>
+                        {item.type === "file" && (
+                          <span style={{ fontSize: "9pt", color: "#aaa" }}>
+                            {(item.size / 1024).toFixed(1)} KB
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )
+              ) : (
+                loadingReadme ? (
+                  <p style={{ color: "#8a8a8a", fontSize: "11pt" }}>Loading readme...</p>
+                ) : readmeContent ? (
+                  <pre style={{
+                    background: "#f8f8f8",
+                    border: "1px solid #e9e9e9",
+                    borderRadius: 8,
+                    padding: 16,
+                    fontSize: "10pt",
+                    lineHeight: 1.6,
+                    overflow: "auto",
+                    maxHeight: "40vh",
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                    fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                    marginBottom: 16,
+                  }}>
+                    {readmeContent}
+                  </pre>
+                ) : (
+                  <p style={{ color: "#8a8a8a", fontSize: "11pt" }}>No README found in this repository.</p>
+                )
               )}
 
               <p style={{ fontSize: "10pt", color: "#8a8a8a", margin: "0 0 16px" }}>

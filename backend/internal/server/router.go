@@ -109,6 +109,7 @@ func NewRouter(cfg *config.Config, db *database.Database, worker *builder.Worker
 		// GitHub
 		api.GET("/github/repos", githubHandler.ListRepos)
 api.GET("/github/repos/:owner/:repo/contents", githubHandler.GetRepoContents)
+api.GET("/github/repos/:owner/:repo/readme", githubHandler.GetRepoReadme)
 		api.GET("/github/profile", RateLimit(60, time.Minute), githubHandler.GetProfile)
 	}
 
