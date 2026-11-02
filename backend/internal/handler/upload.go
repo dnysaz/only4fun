@@ -31,7 +31,7 @@ const (
 const zipRepoPrefix = "zip://"
 
 // CreateFromZip membuat project baru dari arsip ZIP berisi file statis,
-// mempublikasikannya, lalu mengembalikan project tersebut.
+// publishes it, then returns the project.
 func (h *ProjectHandler) CreateFromZip(c *gin.Context) {
 	userID, ok := GetUserID(c)
 	if !ok {
@@ -213,8 +213,8 @@ func extractZip(zipPath, dst string) error {
 	return nil
 }
 
-// stripSingleRoot mengembalikan isi folder bila arsip membungkus semuanya
-// dalam satu folder (mis. project/index.html), selain itu folder itu sendiri.
+// stripSingleRoot returns the contents of a folder if the archive wraps everything
+// inside a single folder (e.g., project/index.html); otherwise the folder itself.
 func stripSingleRoot(dir string) string {
 	entries, err := os.ReadDir(dir)
 	if err != nil || len(entries) != 1 || !entries[0].IsDir() {

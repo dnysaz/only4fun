@@ -78,7 +78,7 @@ func (h *GitHubHandler) githubGet(c *gin.Context, url, accept, token string) (*h
 }
 
 // GetProfile mengembalikan bio, statistik, README profil, dan kalender
-// kontribusi. Data di-cache singkat agar rate limit GitHub tidak cepat habis.
+// Contributions. Data is briefly cached so GitHub rate limit is not quickly exhausted.
 func (h *GitHubHandler) GetProfile(c *gin.Context) {
 	session, ok := h.sessionFromRequest(c)
 	if !ok {
