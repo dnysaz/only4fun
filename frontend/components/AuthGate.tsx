@@ -9,7 +9,7 @@ import styles from "./AuthGate.module.css"
  * Membungkus halaman yang butuh sesi. Selama sesi dimuat, yang tampil hanya
  * layar tunggu (tanpa sidebar), sehingga navigasi tidak berkedip antara versi
  * tamu dan versi login. Kalau ternyata belum login, pengguna diarahkan ke
- * /login dengan ?next= halaman asal.
+ * homepage (/) untuk sign in.
  */
 export default function AuthGate({ children }: { children: React.ReactNode }) {
   const router = useRouter()
@@ -20,14 +20,14 @@ export default function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!signedOut) return
-    router.replace(`/login?next=${encodeURIComponent(pathname)}`)
+    router.replace(`/`)
   }, [signedOut, router, pathname])
 
   if (!loaded || !user) {
     return (
       <div className={styles.screen}>
         <span className={styles.spinner} aria-hidden="true" />
-        <span className={styles.label}>{signedOut ? "Redirecting to sign in…" : "Checking your session…"}</span>
+        <span className={styles.label}>{signedOut ? "Redirecting to home…" : "Checking your session…"}</span>
       </div>
     )
   }

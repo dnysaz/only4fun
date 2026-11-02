@@ -189,9 +189,9 @@ export const docSections: Record<string, { title: string; content: React.ReactNo
           <li style={LI}>Repository access to list and clone your repositories, including private ones.</li>
         </ul>
         <p style={P}>
-          Sign-in always starts at the <code style={CODE}>/login</code> page, which has a single button:{" "}
+          Sign-in always starts at the homepage (<code style={CODE}>/</code>), which has a single button:{" "}
           <strong>Continue with GitHub</strong>. The home page and the public bar (Docs, Help, Support) link there too.
-          If you already have a session, <code style={CODE}>/login</code> sends you straight to the dashboard.
+          If you already have a session, the homepage sends you straight to the dashboard.
         </p>
         <p style={P}>
           The session lasts 24 hours. The browser receives an opaque session identifier in an{" "}
@@ -201,11 +201,11 @@ export const docSections: Record<string, { title: string; content: React.ReactNo
         <p style={P}>
           Only the home page and the Docs, Help, and Support pages are public. Dashboard, New project, project detail,
           and Profile need a session: opening them while signed out shows a short "checking your session" screen and
-          then sends you to <code style={CODE}>/login</code>. The dashboard navigation is not rendered at all in that
+          then sends you to the homepage (<code style={CODE}>/</code>). The dashboard navigation is not rendered at all in that
           state, so nothing flashes before the redirect.
         </p>
         <p style={P}>
-          The login page remembers where you were going. Locked pages link to <code style={CODE}>/login?next=/path</code>,
+          The login page remembers where you were going. Locked pages link to the homepage with <code style={CODE}>?next=/path</code>,
           the API stores that path in a short-lived <code style={CODE}>oauth_next</code> cookie during the OAuth round
           trip, and the callback returns you to it instead of the dashboard. Only local paths are accepted, so the
           parameter cannot be used to redirect you to another site. The cookie is deleted as soon as it is read.
@@ -213,7 +213,7 @@ export const docSections: Record<string, { title: string; content: React.ReactNo
         <p style={P}>
           The <strong>Profile</strong> page in the sidebar shows your GitHub username, email, and sign-in details, and
           is where you sign out. Signing out deletes the session on the server, clears the cookie in this browser, and
-          returns you to <code style={CODE}>/login</code>.
+          returns you to the homepage (<code style={CODE}>/</code>).
         </p>
       </>
     ),
@@ -603,7 +603,7 @@ const { columns, rows } = await res.json()
           </thead>
           <tbody>
             <tr><td style={TD}><code style={CODE}>GET /health</code></td><td style={TD}>Liveness check, no authentication</td></tr>
-            <tr><td style={TD}><code style={CODE}>GET /login</code></td><td style={TD}>Frontend sign-in page with a single Continue with GitHub button (accepts <code style={CODE}>?next=</code>)</td></tr>
+            <tr><td style={TD}><code style={CODE}>GET /</code></td><td style={TD}>Homepage with sign-in button (Continue with GitHub) or Open Dashboard if already logged in</td></tr>
             <tr><td style={TD}><code style={CODE}>GET /auth/github/login?next=/path</code></td><td style={TD}>Start the OAuth flow; the local path is kept in the <code style={CODE}>oauth_next</code> cookie</td></tr>
             <tr><td style={TD}><code style={CODE}>GET /auth/github/callback</code></td><td style={TD}>Finish the flow, set the session cookie, and redirect to the remembered path</td></tr>
             <tr><td style={TD}><code style={CODE}>GET /api/auth/me</code></td><td style={TD}>Current user</td></tr>

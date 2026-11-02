@@ -11,7 +11,7 @@ let inflight: Promise<User | null> | null = null
 
 // Halaman yang boleh dibuka tanpa sesi; 401 di halaman ini tidak boleh
 // memicu redirect agar tamu tetap bisa membaca docs/help/support.
-const PUBLIC_PATHS = ["/", "/login", "/docs", "/help", "/support"]
+const PUBLIC_PATHS = ["/", "/docs", "/help", "/support"]
 
 function isPublicPath(pathname: string) {
   return PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))
@@ -34,7 +34,7 @@ setUnauthorizedHandler(() => {
   if (typeof window === "undefined") return
   const { pathname, search } = window.location
   if (isPublicPath(pathname)) return
-  window.location.assign(`/login?next=${encodeURIComponent(pathname + search)}`)
+  window.location.assign(`/`)
 })
 
 export function loadCurrentUser(): Promise<User | null> {

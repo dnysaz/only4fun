@@ -36,7 +36,7 @@ export default function GlobalRouteError({
           <Link href="/" className={styles.link}>
             Home
           </Link>
-          <Link href="/login" className={styles.link}>
+          <Link href="/" className={styles.link}>
             Sign in
           </Link>
         </div>

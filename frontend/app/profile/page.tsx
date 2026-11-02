@@ -99,7 +99,7 @@ export default function ProfilePage() {
       // tetap arahkan ke beranda walau backend tidak merespons
     }
     clearCurrentUser()
-    router.push("/login")
+    router.push("/")
   }
 
   return (
