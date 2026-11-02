@@ -115,8 +115,7 @@ export default function HomePage() {
           <span>MIT licensed</span>
         </div>
         <p className={styles.footerNote}>
-          An open-source project built for fun. Free static hosting with no warranty and no uptime guarantee —
-          whatever a hosted site shows is the responsibility of its repository owner.
+          An open-source project built for fun. Free static hosting for everyone — deploy your site and share it with the world.
         </p>
         <p className={styles.footerSupport}>
           Supported by{" "}

@@ -9,7 +9,7 @@ server, then serves the output on a subdomain such as `my-project.only4.fun` or 
 [![CI](https://github.com/dnysaz/only4fun/actions/workflows/ci.yml/badge.svg)](https://github.com/dnysaz/only4fun/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-black.svg)](LICENSE)
 
-> Only4fun is a project built for fun. It is free, provided as is, with **no warranty and no uptime guarantee**. Anything a hosted site displays is the responsibility of its repository owner. See [`/terms`](frontend/app/terms/page.tsx) and [`/privacy`](frontend/app/privacy/page.tsx) in the app.
+> Only4fun is a project built for fun. It is free and open-source. See [`/terms`](frontend/app/terms/page.tsx) and [`/privacy`](frontend/app/privacy/page.tsx) in the app.
 
 ---
 

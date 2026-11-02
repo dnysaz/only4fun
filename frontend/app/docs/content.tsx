@@ -459,7 +459,7 @@ const { columns, rows } = await res.json()
             and keep the key there.
           </li>
           <li style={LI}>
-            Moogo, like only4.fun, is a free open-source project: no warranty and no uptime guarantee. Keep your own
+            Moogo, like only4.fun, is a free open-source project. Keep your own
             backups of anything important.
           </li>
         </ul>
