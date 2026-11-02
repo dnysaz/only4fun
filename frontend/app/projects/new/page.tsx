@@ -43,6 +43,7 @@ export default function NewProjectPage() {
   // Repo yang sudah punya project hidup: deploy ulang diblokir lewat modal info,
   // bukan error merah kecil di bawah form.
   const [duplicate, setDuplicate] = useState<{ id: string; subdomain: string } | null>(null)
+  const [envVars, setEnvVars] = useState<{ key: string; value: string }[]>([])
 
   useEffect(() => {
     if (!duplicate) return
@@ -190,6 +191,10 @@ export default function NewProjectPage() {
       setFormError("Please fix the project name before deploying.")
       return
     }
+    const envObj: Record<string, string> = {}
+    for (const { key, value } of envVars) {
+      if (key.trim()) envObj[key.trim()] = value
+    }
     setFormError("")
 
     // Repo yang sudah pernah di-deploy: beri tahu lewat modal agar pengguna
@@ -226,7 +231,7 @@ export default function NewProjectPage() {
         res = await apiFetch("/api/projects", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ repo_url: selectedRepo!.html_url, subdomain, env_vars: {} }),
+          body: JSON.stringify({ repo_url: selectedRepo!.html_url, subdomain, env_vars: envObj }),
         })
       }
       if (!res.ok) {
@@ -462,6 +467,56 @@ export default function NewProjectPage() {
 
             <div className={styles.section}>
               <div className={styles.sectionHead}>
+                <h2 className={styles.sectionTitle}>Environment variables</h2>
+              </div>
+              <p className={styles.sectionHint}>Optional. Add key/value pairs needed at build time (e.g. API keys). Leave empty if not needed.</p>
+              {envVars.map((ev, idx) => (
+                <div key={idx} style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
+                  <input
+                    className={styles.input}
+                    placeholder="KEY"
+                    value={ev.key}
+                    onChange={(e) => {
+                      const next = [...envVars]
+                      next[idx] = { ...next[idx], key: e.target.value }
+                      setEnvVars(next)
+                    }}
+                    style={{ flex: 1 }}
+                  />
+                  <input
+                    className={styles.input}
+                    placeholder="value"
+                    type="password"
+                    value={ev.value}
+                    onChange={(e) => {
+                      const next = [...envVars]
+                      next[idx] = { ...next[idx], value: e.target.value }
+                      setEnvVars(next)
+                    }}
+                    style={{ flex: 2 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setEnvVars(envVars.filter((_, i) => i !== idx))}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "#c5221f", fontSize: "16px", padding: "0 4px" }}
+                    aria-label="Remove"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setEnvVars([...envVars, { key: "", value: "" }])}
+                className={styles.more}
+                style={{ marginTop: 4 }}
+              >
+                + Add variable
+              </button>
+            </div>
+
+            <div className={styles.section}>
+              <div className={styles.sectionHead}>
                 <h2 className={styles.sectionTitle}>Review</h2>
               </div>
               <p className={styles.sectionHint}>One last look before it goes live.</p>
@@ -495,7 +550,11 @@ export default function NewProjectPage() {
                 </div>
                 <div className={styles.summaryRow}>
                   <span className={styles.summaryLabel}>Environment</span>
-                  <span className={styles.summaryValue}>Add after deploy</span>
+                  <span className={styles.summaryValue}>
+                    {envVars.filter((e) => e.key.trim()).length > 0
+                      ? `${envVars.filter((e) => e.key.trim()).length} variable(s) set`
+                      : "None (add after deploy if needed)"}
+                  </span>
                 </div>
               </div>
 
