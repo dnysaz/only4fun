@@ -230,11 +230,15 @@ export function validateProjectName(name: string): ValidationResult {
     return { valid: false, error: "Project name cannot be only dashes." }
   }
 
-  // 6. Cek kata terlarang (case-insensitive, substring match)
+  // 6. Cek kata terlarang (case-insensitive, whole-word / token match)
   const lower = trimmed.toLowerCase()
+  const tokens = lower.split("-")
   for (const word of FORBIDDEN_WORDS) {
-    if (lower.includes(word.toLowerCase())) {
-      return { valid: false, error: `Project name contains a restricted word: "${word}". Please choose another name.` }
+    const w = word.toLowerCase()
+    for (const token of tokens) {
+      if (token === w) {
+        return { valid: false, error: `Project name contains a restricted word: "${word}". Please choose another name.` }
+      }
     }
   }
 
