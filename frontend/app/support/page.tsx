@@ -6,9 +6,9 @@ import { useCurrentUser } from "@/lib/auth"
 import ui from "../ui.module.css"
 import styles from "../content.module.css"
 
-// Ganti dengan URL sebenarnya saat sudah tersedia.
-const GITHUB_URL = "https://github.com/only4fun/only4.fun"
-const SUPPORT_URL = "https://example.com/only4.fun/support"
+const GITHUB_URL = "https://github.com/dnysaz/only4fun"
+const ISSUES_URL = "https://github.com/dnysaz/only4fun/issues"
+const SUPPORT_URL = "https://github.com/dnysaz/only4fun/issues"
 const LICENSE_URL = "https://opensource.org/license/mit"
 
 const H2: React.CSSProperties = { fontSize: "16px", fontWeight: 650, margin: "34px 0 12px", paddingTop: 24, borderTop: "1px solid #e4e4e4", letterSpacing: "-0.1px" }
@@ -58,16 +58,12 @@ export default function SupportPage() {
           the platform works end to end.
         </p>
         <p style={P}>
-          If you still need a human, use the support portal. The link is a placeholder for now and will be replaced
-          once a real channel exists:
+          If you still need help, open an issue on GitHub. The community and maintainers will respond there:
         </p>
         <p style={P}>
-          <a href={SUPPORT_URL} target="_blank" rel="noreferrer">
-            {SUPPORT_URL}
+          <a href={ISSUES_URL} target="_blank" rel="noreferrer">
+            {ISSUES_URL}
           </a>
-        </p>
-        <p style={{ ...P, color: "#8a8a8a", fontSize: "10.5pt" }}>
-          Placeholder — replacing it only requires editing one constant in this page.
         </p>
 
         <h2 style={H2}>Report a bug or request a feature</h2>
@@ -87,6 +83,15 @@ export default function SupportPage() {
           <li style={LI}>The relevant lines from the deployment log, if the build failed.</li>
           <li style={LI}>The failing request and status code from your browser Network tab.</li>
         </ul>
+
+        <h2 style={H2}>Star &amp; Fork</h2>
+        <p style={P}>
+          If you find only4.fun useful, consider{" "}
+          <a href={GITHUB_URL} target="_blank" rel="noreferrer">starring the repository</a> on GitHub — it helps
+          others discover the project. You are also welcome to{" "}
+          <a href={`${GITHUB_URL}/fork`} target="_blank" rel="noreferrer">fork it</a> and contribute improvements
+          via pull requests.
+        </p>
 
         <h2 style={H2}>Other ways to help</h2>
         <ul style={UL}>
