@@ -40,6 +40,7 @@ export default function NewProjectPage() {
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState("")
   const [repoQuery, setRepoQuery] = useState("")
+  const [manualRepoUrl, setManualRepoUrl] = useState("")
   // Repo yang sudah punya project hidup: deploy ulang diblokir lewat modal info,
   // bukan error merah kecil di bawah form.
   const [duplicate, setDuplicate] = useState<{ id: string; subdomain: string } | null>(null)
@@ -72,7 +73,8 @@ export default function NewProjectPage() {
     return repos.filter((r) => r.name.toLowerCase().includes(q) || r.full_name.toLowerCase().includes(q))
   }, [repos, repoQuery])
 
-  const hasSource = source === "github" ? Boolean(selectedRepo) : Boolean(zipFile)
+  const hasGitSource = Boolean(selectedRepo || manualRepoUrl)
+  const hasSource = source === "github" ? hasGitSource : Boolean(zipFile)
   const canDeploy =
     hasSource &&
     Boolean(subdomain) &&
@@ -205,8 +207,8 @@ export default function NewProjectPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (source === "github" && !selectedRepo) {
-      setFormError("Please select a repository first.")
+    if (source === "github" && !selectedRepo && !manualRepoUrl.trim()) {
+      setFormError("Please select a repository or paste a repository URL.")
       return
     }
     if (source === "zip" && !zipFile) {
@@ -240,7 +242,7 @@ export default function NewProjectPage() {
         const listRes = await apiFetch("/api/projects")
         if (listRes.ok) {
           const listData = await listRes.json()
-          const target = norm(selectedRepo!.html_url)
+          const target = norm(manualRepoUrl.trim() || selectedRepo!.html_url)
           const hit = (listData.projects || []).find(
             (p: { id: string; repo_url?: string; subdomain?: string }) => p.repo_url && norm(p.repo_url) === target
           )
@@ -266,7 +268,7 @@ export default function NewProjectPage() {
         res = await apiFetch("/api/projects", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ repo_url: selectedRepo!.html_url, subdomain, env_vars: envObj }),
+          body: JSON.stringify({ repo_url: manualRepoUrl.trim() || selectedRepo!.html_url, subdomain, env_vars: envObj }),
         })
       }
       if (!res.ok) {
@@ -339,6 +341,22 @@ export default function NewProjectPage() {
 
             {source === "github" ? (
               <div>
+                <div className={styles.manualRepoRow} style={{ marginBottom: 16 }}>
+                  <label style={{ fontSize: "11pt", color: "#525252", display: "block", marginBottom: 6, fontWeight: 600 }}>
+                    Repository URL (manual / private repo)
+                  </label>
+                  <input
+                    style={{ width: "100%" }}
+                    placeholder="https://github.com/username/repo-name.git"
+                    value={manualRepoUrl}
+                    onChange={(e) => setManualRepoUrl(e.target.value)}
+                  />
+                  {manualRepoUrl && (
+                    <p style={{ fontSize: "9.5pt", color: "#8a8a8a", marginTop: 4 }}>
+                      Build will clone this private repository using your GitHub token.
+                    </p>
+                  )}
+                </div>
                 {!loadingRepos && !reposError && repos.length > 0 && (
                   <div className={styles.searchWrap}>
                     <input
