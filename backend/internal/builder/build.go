@@ -71,6 +71,17 @@ func (b *Builder) Build(ctx context.Context, job Job, logf func(string)) (string
 		return "", err
 	}
 
+	// Log commit details for debugging redeploy / source changes.
+	if out, err := exec.CommandContext(ctx, "git", "-C", workDir, "rev-parse", "HEAD").Output(); err == nil {
+		logf(fmt.Sprintf("git commit: %s", strings.TrimSpace(string(out))))
+	}
+	if out, err := exec.CommandContext(ctx, "git", "-C", workDir, "branch", "--show-current").Output(); err == nil {
+		logf(fmt.Sprintf("git branch: %s", strings.TrimSpace(string(out))))
+	}
+	if out, err := exec.CommandContext(ctx, "git", "-C", workDir, "log", "--oneline", "-1").Output(); err == nil {
+		logf(fmt.Sprintf("git last commit: %s", strings.TrimSpace(string(out))))
+	}
+
 	outputDir, err := b.runBuild(ctx, job, workDir, logf)
 	if err != nil {
 		return "", err
