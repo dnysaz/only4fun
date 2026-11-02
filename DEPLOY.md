@@ -111,7 +111,8 @@ log "Backend built successfully"
 log "Building frontend..."
 cd "$FRONTEND_DIR"
 npm ci --silent
-npm run build || err "frontend build failed"
+# IMPORTANT: set NEXT_PUBLIC_API_URL for production
+NEXT_PUBLIC_API_URL=https://only4.fun npm run build || err "frontend build failed"
 log "Frontend built successfully"
 
 # ─── Run database migrations ─────────────────────────────────────────────────
@@ -171,6 +172,15 @@ WorkingDirectory=/opt/only4.fun/backend
 Environment="SESSION_SECRET=your-secret-here"
 Environment="SITES_DIR=/opt/only4.fun/backend/data/sites"
 Environment="GIN_MODE=release"
+Environment="GITHUB_CLIENT_ID=your-client-id"
+Environment="GITHUB_CLIENT_SECRET=your-client-secret"
+Environment="GITHUB_REDIRECT_URL=https://only4.fun/auth/github/callback"
+Environment="FRONTEND_URL=https://only4.fun"
+Environment="CLOUDFLARE_API_KEY=your-api-token"
+Environment="CLOUDFLARE_ZONE_ID=your-zone-id"
+Environment="CLOUDFLARE_DOMAIN=only4.fun"
+Environment="CLOUDFLARE_TARGET=your-vps-ip"
+Environment="CLOUDFLARE_PROXY=true"
 ExecStart=/opt/only4.fun/backend/only4fun-server
 Restart=always
 RestartSec=5
@@ -190,7 +200,7 @@ Type=simple
 User=www-data
 WorkingDirectory=/opt/only4.fun/frontend
 Environment="NODE_ENV=production"
-Environment="NEXT_PUBLIC_API_URL=https://api.only4.fun"
+Environment="NEXT_PUBLIC_API_URL=https://only4.fun"
 ExecStart=/usr/bin/npm start
 Restart=always
 RestartSec=5
@@ -201,13 +211,25 @@ WantedBy=multi-user.target
 
 ## Reverse Proxy (Nginx)
 
+**IMPORTANT:** The Nginx config must route subdomain requests (e.g. `ytg.only4.fun`) to the backend
+(port 8080) so the backend's SiteHandler can serve the deployed site. Main domain requests go to the
+frontend (port 3000).
+
 ```nginx
 # /etc/nginx/sites-available/only4.fun
+
+# Map host to backend port: main domain -> frontend (3000), subdomains -> backend (8080)
+map $host $backend_port {
+    only4.fun       3000;
+    www.only4.fun   3000;
+    default         8080;
+}
+
 server {
     listen 80;
     server_name only4.fun *.only4.fun;
 
-    # Redirect HTTP to HTTPS (Cloudflare handles SSL, but just in case)
+    # Redirect HTTP to HTTPS
     return 301 https://$host$request_uri;
 }
 
@@ -219,9 +241,9 @@ server {
     ssl_certificate /etc/ssl/certs/cloudflare-origin.pem;
     ssl_certificate_key /etc/ssl/private/cloudflare-origin.key;
 
-    # Frontend (Next.js)
+    # All requests: route to frontend (3000) or backend (8080) based on host
     location / {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:$backend_port;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
@@ -232,7 +254,7 @@ server {
         proxy_cache_bypass $http_upgrade;
     }
 
-    # Backend API
+    # Backend API (always backend)
     location /api/ {
         proxy_pass http://127.0.0.1:8080;
         proxy_http_version 1.1;
@@ -242,7 +264,7 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Auth routes
+    # Auth routes (always backend)
     location /auth/ {
         proxy_pass http://127.0.0.1:8080;
         proxy_http_version 1.1;
@@ -252,12 +274,14 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Health check
+    # Health check (always backend)
     location /health {
         proxy_pass http://127.0.0.1:8080;
     }
 }
 ```
+
+**IMPORTANT:** The `map` block must be placed in the `http` context (outside the `server` block), typically in `/etc/nginx/nginx.conf` or in a file included from there. If you put it inside the server block, Nginx will fail to start.
 
 ## Cloudflare DNS Setup
 
@@ -280,7 +304,7 @@ Type: A     Name: *     Content: <VPS_IP>     Proxy: Proxied
 
 ### Build Isolation
 
-Builds run directly on the host (VPS). Make sure Node.js and npm are installed and available on the PATH. Build output is published to `data/sites/<subdomain>/`.
+Builds run directly on the host (Node.js + npm). Make sure Node.js and npm are installed and available on the PATH. Build output is published to `data/sites/<subdomain>/`.
 
 ### HTTPS & Cookies
 
