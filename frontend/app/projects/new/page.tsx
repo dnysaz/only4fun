@@ -44,6 +44,9 @@ export default function NewProjectPage() {
   // bukan error merah kecil di bawah form.
   const [duplicate, setDuplicate] = useState<{ id: string; subdomain: string } | null>(null)
   const [envVars, setEnvVars] = useState<{ key: string; value: string }[]>([])
+  const [previewRepo, setPreviewRepo] = useState<Repo | null>(null)
+  const [repoContents, setRepoContents] = useState<{ name: string; type: string; size: number; path: string }[]>([])
+  const [loadingContents, setLoadingContents] = useState(false)
 
   useEffect(() => {
     if (!duplicate) return
@@ -149,6 +152,24 @@ export default function NewProjectPage() {
     }, 400)
     return () => clearTimeout(timer)
   }, [subdomain, checkSubdomain])
+
+  const loadRepoContents = async (repo: Repo) => {
+    const parts = repo.full_name.split("/")
+    if (parts.length < 2) return
+    setLoadingContents(true)
+    setRepoContents([])
+    try {
+      const res = await apiFetch(`/api/github/repos/${parts[0]}/${parts[1]}/contents`)
+      if (res.ok) {
+        const data = await res.json()
+        setRepoContents(data.contents || [])
+      }
+    } catch {
+      // ignore
+    } finally {
+      setLoadingContents(false)
+    }
+  }
 
   const handleSubdomainChange = (value: string) => {
     const cleaned = value.toLowerCase().replace(/[^a-z0-9-]/g, "")
@@ -342,7 +363,11 @@ export default function NewProjectPage() {
                             type="button"
                             role="option"
                             aria-selected={active}
-                            onClick={() => setSelectedRepo(r)}
+                            onClick={() => {
+                              setSelectedRepo(r)
+                              setPreviewRepo(r)
+                              loadRepoContents(r)
+                            }}
                             className={`${styles.repoRow} ${active ? styles.repoRowActive : ""}`}
                           >
                             <div className={styles.repoText}>
@@ -517,6 +542,56 @@ export default function NewProjectPage() {
 
             <div className={styles.section}>
               <div className={styles.sectionHead}>
+                <h2 className={styles.sectionTitle}>Environment variables</h2>
+              </div>
+              <p className={styles.sectionHint}>Optional. Add key/value pairs needed at build time (e.g. API keys). Leave empty if not needed.</p>
+              {envVars.map((ev, idx) => (
+                <div key={idx} style={{ display: "flex", gap: 8, marginBottom: 8, alignItems: "center" }}>
+                  <input
+                    className={styles.input}
+                    placeholder="KEY"
+                    value={ev.key}
+                    onChange={(e) => {
+                      const next = [...envVars]
+                      next[idx] = { ...next[idx], key: e.target.value }
+                      setEnvVars(next)
+                    }}
+                    style={{ flex: 1 }}
+                  />
+                  <input
+                    className={styles.input}
+                    placeholder="value"
+                    type="password"
+                    value={ev.value}
+                    onChange={(e) => {
+                      const next = [...envVars]
+                      next[idx] = { ...next[idx], value: e.target.value }
+                      setEnvVars(next)
+                    }}
+                    style={{ flex: 2 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setEnvVars(envVars.filter((_, i) => i !== idx))}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "#c5221f", fontSize: "16px", padding: "0 4px" }}
+                    aria-label="Remove"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setEnvVars([...envVars, { key: "", value: "" }])}
+                className={styles.more}
+                style={{ marginTop: 4 }}
+              >
+                + Add variable
+              </button>
+            </div>
+
+            <div className={styles.section}>
+              <div className={styles.sectionHead}>
                 <h2 className={styles.sectionTitle}>Review</h2>
               </div>
               <p className={styles.sectionHint}>One last look before it goes live.</p>
@@ -580,6 +655,124 @@ export default function NewProjectPage() {
             </div>
           </section>
         </div>
+
+        {previewRepo && (
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Repository preview"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setPreviewRepo(null)
+            }}
+            style={{
+              position: "fixed",
+              inset: 0,
+              zIndex: 9999,
+              background: "rgba(0,0,0,0.45)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 24,
+            }}
+          >
+            <div
+              style={{
+                background: "#fff",
+                borderRadius: 16,
+                padding: 24,
+                maxWidth: 560,
+                width: "100%",
+                maxHeight: "80vh",
+                overflow: "auto",
+                boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+                fontFamily: "Inter, system-ui, sans-serif",
+              }}
+            >
+              <h3 style={{ fontSize: "16pt", fontWeight: 600, margin: "0 0 4px", color: "#171717" }}>
+                Repository Preview
+              </h3>
+              <p style={{ fontSize: "10pt", color: "#8a8a8a", margin: "0 0 16px" }}>
+                {previewRepo.full_name} · {previewRepo.private ? "private" : "public"}
+              </p>
+
+              {loadingContents ? (
+                <p style={{ color: "#8a8a8a", fontSize: "11pt" }}>Loading contents...</p>
+              ) : repoContents.length === 0 ? (
+                <p style={{ color: "#8a8a8a", fontSize: "11pt" }}>No files found or empty repository.</p>
+              ) : (
+                <div style={{ border: "1px solid #e9e9e9", borderRadius: 8, overflow: "hidden", marginBottom: 16 }}>
+                  {repoContents.map((item, idx) => (
+                    <div
+                      key={item.path}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        padding: "8px 12px",
+                        borderBottom: idx < repoContents.length - 1 ? "1px solid #f0f0f0" : "none",
+                        fontSize: "11pt",
+                      }}
+                    >
+                      <span style={{ color: item.type === "dir" ? "#2563eb" : "#8a8a8a", fontSize: "14px" }}>
+                        {item.type === "dir" ? "📁" : "📄"}
+                      </span>
+                      <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {item.name}
+                      </span>
+                      {item.type === "file" && (
+                        <span style={{ fontSize: "9pt", color: "#aaa" }}>
+                          {(item.size / 1024).toFixed(1)} KB
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <p style={{ fontSize: "10pt", color: "#8a8a8a", margin: "0 0 16px" }}>
+                Review the files above. If everything looks correct, proceed to deploy.
+              </p>
+
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPreviewRepo(null)
+                    setSelectedRepo(null)
+                  }}
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: 8,
+                    border: "1px solid #ddd",
+                    background: "#fff",
+                    fontSize: "10pt",
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewRepo(null)}
+                  style={{
+                    padding: "8px 14px",
+                    borderRadius: 8,
+                    border: "none",
+                    background: "#171717",
+                    color: "#fff",
+                    fontSize: "10pt",
+                    fontWeight: 600,
+                    cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}
+                >
+                  Continue to deploy
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {duplicate && (
           <div
