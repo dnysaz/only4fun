@@ -33,14 +33,19 @@ func (h *ProjectHandler) GetWebhookInfo(c *gin.Context) {
 		return
 	}
 
-	// Bangun URL dari request supaya tetap benar di balik proxy Cloudflare.
-	scheme := "http"
-	if isHTTPS(c) {
-		scheme = "https"
+	// Bangun URL dari publicURL (jika di-set) atau dari request host,
+	// supaya tetap benar di balik proxy Cloudflare.
+	host := h.publicURL
+	if host == "" {
+		scheme := "http"
+		if isHTTPS(c) {
+			scheme = "https"
+		}
+		host = fmt.Sprintf("%s://%s", scheme, c.Request.Host)
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"webhook": database.WebhookInfo{
-			URL:    fmt.Sprintf("%s://%s/webhooks/github", scheme, c.Request.Host),
+			URL:    host + "/webhooks/github",
 			Secret: secret,
 			Events: []string{"push"},
 		},

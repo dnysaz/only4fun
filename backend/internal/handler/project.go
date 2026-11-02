@@ -36,6 +36,7 @@ type ProjectHandler struct {
 	dns             *dns.Client
 	processes       ProcessStopper
 	sitesDir        string
+	publicURL       string
 }
 
 func NewProjectHandler(
@@ -47,6 +48,7 @@ func NewProjectHandler(
 	dnsClient *dns.Client,
 	processes ProcessStopper,
 	sitesDir string,
+	publicURL string,
 ) *ProjectHandler {
 	return &ProjectHandler{
 		projectStore:    projectStore,
@@ -57,6 +59,7 @@ func NewProjectHandler(
 		dns:             dnsClient,
 		processes:       processes,
 		sitesDir:        sitesDir,
+		publicURL:       strings.TrimRight(publicURL, "/"),
 	}
 }
 

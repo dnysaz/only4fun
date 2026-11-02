@@ -85,6 +85,7 @@ func newTestHandler(t *testing.T, store *testStore) *ProjectHandler {
 		nil, // dnsClient
 		nil, // processes
 		"",  // sitesDir
+		"",  // publicURL
 	)
 }
 

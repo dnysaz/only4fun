@@ -62,7 +62,7 @@ func NewRouter(cfg *config.Config, db *database.Database, worker *builder.Worker
 	// ProcessManager dipakai juga oleh handler project untuk menghentikan
 	// server SSR saat project deleted.
 	pm := NewProcessManager()
-	projectHandler := handler.NewProjectHandler(projectStore, userStore, sessionStore, stores.Deployment, worker, dns.New(cfg.Cloudflare), pm, cfg.Build.SitesDir)
+	projectHandler := handler.NewProjectHandler(projectStore, userStore, sessionStore, stores.Deployment, worker, dns.New(cfg.Cloudflare), pm, cfg.Build.SitesDir, cfg.Server.FrontendURL)
 	githubHandler := handler.NewGitHubHandler(sessionStore)
 
 	// Health check (tanpa auth)
