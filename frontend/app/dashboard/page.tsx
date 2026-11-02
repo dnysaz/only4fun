@@ -44,6 +44,7 @@ export default function DashboardPage() {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [search, setSearch] = useState("")
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list")
 
   const loadProjects = useCallback(async () => {
     const res = await apiFetch("/api/projects")
@@ -171,6 +172,22 @@ export default function DashboardPage() {
               <h2 className={ui.sectionTitle}>All projects</h2>
               <span className={ui.sectionCount}>{filtered.length}</span>
             </div>
+            <div className={ui.viewToggle}>
+              <button
+                className={`${ui.viewToggleBtn} ${viewMode === "list" ? ui.viewToggleBtnActive : ""}`}
+                onClick={() => setViewMode("list")}
+                aria-label="List view"
+              >
+                List
+              </button>
+              <button
+                className={`${ui.viewToggleBtn} ${viewMode === "grid" ? ui.viewToggleBtnActive : ""}`}
+                onClick={() => setViewMode("grid")}
+                aria-label="Grid view"
+              >
+                Grid
+              </button>
+            </div>
           </div>
 
           {projects.length > 0 && (
@@ -223,6 +240,65 @@ export default function DashboardPage() {
             </div>
           ) : filtered.length === 0 ? (
             <p className={ui.empty}>No projects match &quot;{search}&quot;.</p>
+          ) : viewMode === "grid" ? (
+            <div className={ui.grid}>
+              {filtered.map((p) => {
+                const st = statusMeta(p.status)
+                const isZip = p.repo_url.startsWith("zip://")
+                return (
+                  <div
+                    key={p.id}
+                    className={ui.gridCard}
+                    onClick={() => router.push(`/projects/${p.id}`)}
+                  >
+                    <h3 className={ui.gridCardTitle}>{p.subdomain}</h3>
+                    <p className={ui.gridCardMeta}>{repoLabel(p.repo_url)}</p>
+                    <div className={ui.gridCardFooter}>
+                      <span className={ui.status} style={{ color: st.color }}>
+                        <span className={ui.statusDot} aria-hidden="true" />
+                        {st.label}
+                      </span>
+                      <span style={{ fontSize: "12px", color: "#8a8a8a" }}>
+                        {(p.views ?? 0).toLocaleString("en-GB")} views
+                      </span>
+                    </div>
+                    <div style={{ marginTop: 12, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <a
+                        href={`https://${p.subdomain}.only4.fun`}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className={`${ui.btn} ${ui.btnTiny}`}
+                      >
+                        Visit ↗
+                      </a>
+                      {!isZip && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleRedeploy(p.id)
+                          }}
+                          disabled={busyId === p.id}
+                          className={`${ui.btn} ${ui.btnTiny}`}
+                        >
+                          {busyId === p.id ? "Working..." : "Redeploy"}
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDeleteTarget(p.id)
+                        }}
+                        disabled={busyId === p.id}
+                        className={`${ui.btn} ${ui.btnTiny} ${ui.btnDanger}`}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           ) : (
             <div className={ui.list}>
               {filtered.map((p) => {

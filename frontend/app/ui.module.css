@@ -242,6 +242,83 @@
   border-top: 1px solid #e9e9e9;
 }
 
+/* Grid view for projects. */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.gridCard {
+  border: 1px solid #e9e9e9;
+  border-radius: 10px;
+  padding: 16px;
+  cursor: pointer;
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  background: #fff;
+}
+
+.gridCard:hover {
+  border-color: #ccc;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.gridCardTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: #171717;
+  margin: 0 0 4px;
+}
+
+.gridCardMeta {
+  font-size: 12px;
+  color: #8a8a8a;
+  margin: 0 0 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.gridCardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+/* View toggle buttons. */
+.viewToggle {
+  display: flex;
+  gap: 4px;
+  border: 1px solid #e2e2e2;
+  border-radius: 6px;
+  padding: 2px;
+  background: #f5f5f5;
+}
+
+.viewToggleBtn {
+  padding: 4px 10px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  color: #5c5c5c;
+  transition: background 0.15s, color 0.15s;
+}
+
+.viewToggleBtn:hover {
+  color: #171717;
+}
+
+.viewToggleBtnActive {
+  background: #fff;
+  color: #171717;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
 .listRow {
   display: flex;
   align-items: center;
