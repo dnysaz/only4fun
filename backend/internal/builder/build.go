@@ -282,6 +282,29 @@ func detectOutput(workDir string) (string, error) {
 				return dir, nil
 			}
 			if name == ".next" {
+				// Next.js SSR: standalone output
+				if fileExists(filepath.Join(dir, "standalone", "server.js")) {
+					return filepath.Join(dir, "standalone"), nil
+				}
+				// Next.js SSR without standalone: .next/ with server/ directory
+				if info, err := os.Stat(filepath.Join(dir, "server")); err == nil && info.IsDir() {
+					// Check if next binary is available to run 'next start'
+					if fileExists(filepath.Join(workDir, "node_modules", ".bin", "next")) {
+						// Create a wrapper server.js that runs 'next start'
+						wrapper := filepath.Join(workDir, "server.js")
+						content := `const { spawn } = require('child_process');
+const path = require('path');
+const port = process.env.PORT || 3000;
+const nextBin = path.join(__dirname, 'node_modules', '.bin', 'next');
+const child = spawn(nextBin, ['start', '-p', String(port)], { stdio: 'inherit', cwd: __dirname, env: process.env });
+child.on('exit', (code) => process.exit(code || 0));
+`
+						_ = os.WriteFile(wrapper, []byte(content), 0644)
+						// Publish the whole project so node_modules is available
+						return workDir, nil
+					}
+				}
+				// Next.js static export
 				if fileExists(filepath.Join(dir, "out", "index.html")) {
 					return filepath.Join(dir, "out"), nil
 				}

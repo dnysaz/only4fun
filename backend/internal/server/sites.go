@@ -85,10 +85,9 @@ func SiteHandler(cfg *config.Config, projectStore *database.ProjectStore, pm *Pr
 // sebagai server, jadi SSR hanya aktif bila package.json punya script "start"
 // atau tersedia output standalone Next.js.
 func findServerEntry(root string) string {
-	candidates := []string{".next/standalone/server.js"}
+	candidates := []string{".next/standalone/server.js", "server.js"}
 	if packageHasStartScript(root) {
 		candidates = append(candidates,
-			"server.js",
 			"server.mjs",
 			"build/server.js",
 			"dist/server.js",
