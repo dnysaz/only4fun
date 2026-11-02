@@ -1,11 +1,17 @@
 /* Shared visual styles for dashboard and project detail pages. */
-   Tanpa kartu: bagian dipisahkan garis rambut, angka langkah, dan tipografi. */
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300..800;1,9..40,300..800&display=swap');
+
+.page p,
+.pageWide p {
+  font-size: 15.5px;
+  line-height: 1.7;
+}
 
 .page {
   max-width: 1040px;
   margin: 0 auto;
   padding: 28px clamp(16px, 4vw, 24px) 64px;
-  font-family: Inter, system-ui, -apple-system, sans-serif;
+  font-family: 'DM Sans', Inter, system-ui, -apple-system, sans-serif;
   color: #171717;
 }
 
