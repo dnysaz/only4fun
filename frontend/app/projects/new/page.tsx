@@ -341,18 +341,18 @@ export default function NewProjectPage() {
 
             {source === "github" ? (
               <div>
-                <div className={styles.manualRepoRow} style={{ marginBottom: 16 }}>
-                  <label style={{ fontSize: "11pt", color: "#525252", display: "block", marginBottom: 6, fontWeight: 600 }}>
-                    Repository URL (manual / private repo)
-                  </label>
-                  <input
-                    style={{ width: "100%" }}
-                    placeholder="https://github.com/username/repo-name.git"
-                    value={manualRepoUrl}
-                    onChange={(e) => setManualRepoUrl(e.target.value)}
-                  />
+                <div className={styles.manualRepoRow}>
+                  <label className={styles.manualRepoLabel}>Repository URL (manual / private repo)</label>
+                  <div className={styles.inputWrap}>
+                    <input
+                      className={styles.input}
+                      placeholder="https://github.com/username/repo-name.git"
+                      value={manualRepoUrl}
+                      onChange={(e) => setManualRepoUrl(e.target.value)}
+                    />
+                  </div>
                   {manualRepoUrl && (
-                    <p style={{ fontSize: "9.5pt", color: "#8a8a8a", marginTop: 4 }}>
+                    <p className={styles.manualRepoHint}>
                       Build will clone this private repository using your GitHub token.
                     </p>
                   )}

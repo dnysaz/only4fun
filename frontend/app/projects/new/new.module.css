@@ -279,6 +279,24 @@
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+.manualRepoRow {
+  margin-bottom: 16px;
+}
+
+.manualRepoLabel {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #525252;
+}
+
+.manualRepoHint {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  color: #8a8a8a;
+}
+
 .inputWrap:focus-within {
   border-color: #171717;
   box-shadow: 0 0 0 3px rgba(23, 23, 23, 0.06);
