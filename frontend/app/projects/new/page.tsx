@@ -41,6 +41,10 @@ export default function NewProjectPage() {
   const [formError, setFormError] = useState("")
   const [repoQuery, setRepoQuery] = useState("")
   const [manualRepoUrl, setManualRepoUrl] = useState("")
+  const [repoCheckResult, setRepoCheckResult] = useState<{items?:{name:string;type:string}[];hasReadme?:boolean} | null>(null)
+  const [repoCheckLoading, setRepoCheckLoading] = useState(false)
+  const [repoChecked, setRepoChecked] = useState(false)
+  const [manualContinue, setManualContinue] = useState(false)
   // Repo yang sudah punya project hidup: deploy ulang diblokir lewat modal info,
   // bukan error merah kecil di bawah form.
   const [duplicate, setDuplicate] = useState<{ id: string; subdomain: string } | null>(null)
@@ -417,7 +421,84 @@ export default function NewProjectPage() {
                     onChange={(e) => setManualRepoUrl(e.target.value)}
                   />
                 </div>
-                <p className={styles.manualRepoHint}>Build will clone this private repo using your GitHub token.</p>
+                <button
+                  type="button"
+                  className={`${styles.btn} ${styles.btnSecondary}`}
+                  style={{ marginTop: 12, minWidth: 140 }}
+                  disabled={!manualRepoUrl.trim() || repoCheckLoading || repoChecked}
+                  onClick={async () => {
+                    setRepoCheckLoading(true)
+                    setRepoCheckResult(null)
+                    try {
+                      const url = new URL(manualRepoUrl.trim())
+                      const path = url.pathname.replace(/\.git$/i, "").replace(/^\//, "")
+                      const [owner, repo] = path.split("/")
+                      if (!owner || !repo) throw new Error("Invalid URL")
+                      const res = await apiFetch(`/api/github/repos/${owner}/${repo}/contents`)
+                      const data = await res.json()
+                      const items = Array.isArray(data) ? data.map((i:any)=>({name:String(i.name||""),type:String(i.type||"")})) : []
+                      const hasReadme = items.some(i=>i.name.toLowerCase().includes("readme"))
+                      setRepoCheckResult({ items, hasReadme })
+                      setRepoChecked(true)
+                    } catch {
+                      setRepoCheckResult({ items: [], hasReadme: false })
+                      setRepoChecked(true)
+                    } finally {
+                      setRepoCheckLoading(false)
+                    }
+                  }}
+                >
+                  {repoCheckLoading ? "Checking..." : repoChecked ? "Checked" : "Check repo"}
+                </button>
+                {repoChecked && repoCheckResult && (
+                  <div style={{ marginTop: 16, padding: 14, background: "#f6f6f6", borderRadius: 8, border: "1px solid #eaeaea", fontSize: 13 }}>
+                    <div style={{ fontWeight: 600, marginBottom: 6 }}>Repo preview</div>
+                    <div style={{ color: "#555" }}>
+                      {repoCheckResult.items && repoCheckResult.items.length > 0 ? (
+                        <ul style={{ paddingLeft: 16, margin: "6px 0", lineHeight: 1.7 }}>
+                          {repoCheckResult.items.map(i => (
+                            <li key={i.name}>{i.name} <span style={{ color: "#aaa", fontSize: 11 }}>({i.type})</span></li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <span style={{ color: "#999" }}>No files found at root</span>
+                      )}
+                    </div>
+                    <div style={{ marginTop: 6 }}>
+                      {repoCheckResult.hasReadme ? (
+                        <span style={{ color: "#1a7f37", fontWeight: 600 }}>README.md found</span>
+                      ) : (
+                        <span style={{ color: "#b35900", fontWeight: 600 }}>No README.md</span>
+                      )}
+                    </div>
+                    {!manualContinue && (
+                      <button
+                        type="button"
+                        className={`${styles.btn} ${styles.btnPrimary}`}
+                        style={{ marginTop: 12 }}
+                        onClick={() => setManualContinue(true)}
+                      >
+                        Continue
+                      </button>
+                    )}
+                  </div>
+                )}
+                {manualContinue && (
+                  <div style={{ marginTop: 16, padding: 12, background: "#f0f7ff", borderRadius: 8, border: "1px solid #d6e4ff" }}>
+                    <label style={{ fontWeight: 600, fontSize: 14, display: "block", marginBottom: 4 }}>Subdomain</label>
+                    <div className={styles.inputWrap}>
+                      <input
+                        className={styles.input}
+                        placeholder="my-site"
+                        value={subdomain}
+                        onChange={(e) => setSubdomain(e.target.value)}
+                      />
+                      <span style={{ color: "#888", fontSize: 12, marginLeft: 4 }}>{`only4.fun`}</span>
+                    </div>
+                    <p className={styles.manualRepoHint}>After confirming subdomain, click Deploy.</p>
+                  </div>
+                )}
+                <p className={styles.manualRepoHint} style={{ marginTop: 8 }}>Build will clone this private repository using your GitHub token.</p>
               </div>
             ) : (
               <>
