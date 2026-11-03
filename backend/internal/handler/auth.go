@@ -57,7 +57,7 @@ func NewAuthHandler(clientID, clientSecret, redirectURL, frontendURL string, use
 	cfg := &oauth2.Config{
 		ClientID:     clientID,
 		ClientSecret: clientSecret,
-		Scopes:       []string{"user:email", "read:user"},
+		Scopes:       []string{"user:email", "read:user", "repo"},
 		Endpoint:     github.Endpoint,
 		RedirectURL:  redirectURL,
 	}
