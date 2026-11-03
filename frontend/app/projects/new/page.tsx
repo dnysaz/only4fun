@@ -436,7 +436,8 @@ export default function NewProjectPage() {
                       if (!owner || !repo) throw new Error("Invalid URL")
                       const res = await apiFetch(`/api/github/repos/${owner}/${repo}/contents`)
                       const data = await res.json()
-                      const items = Array.isArray(data) ? data.map((i:any)=>({name:String(i.name||""),type:String(i.type||"")})) : []
+                      const raw = data.contents || data
+                      const items = Array.isArray(raw) ? raw.map((i:any)=>({name:String(i.name||""),type:String(i.type||"")})) : []
                       const hasReadme = items.some(i=>i.name.toLowerCase().includes("readme"))
                       setRepoCheckResult({ items, hasReadme })
                       setRepoChecked(true)
