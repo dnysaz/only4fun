@@ -16,7 +16,6 @@
 .formCol {
   border-left: 1px solid #e4e4e4;
   padding-left: clamp(28px, 5vw, 56px);
-  min-height: 460px;
 }
 
 .section {

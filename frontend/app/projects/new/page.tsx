@@ -33,7 +33,7 @@ export default function NewProjectPage() {
   const [hasMoreRepos, setHasMoreRepos] = useState(false)
   const [loadingMoreRepos, setLoadingMoreRepos] = useState(false)
   // Sumber deploy: repo GitHub atau unggahan ZIP.
-  const [source, setSource] = useState<"github" | "zip" | "manual">("github")
+  const [source, setSource] = useState<"github" | "zip">("github")
   const [zipFile, setZipFile] = useState<File | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const zipInputRef = useRef<HTMLInputElement>(null)
@@ -321,7 +321,6 @@ export default function NewProjectPage() {
             <div className={styles.tabs} role="tablist" aria-label="Deploy source">
               {[
                 { key: "github" as const, label: "GitHub repository" },
-                { key: "manual" as const, label: "Paste manual URL" },
                 { key: "zip" as const, label: "Upload ZIP" },
               ].map((tab) => (
                 <button
@@ -422,40 +421,7 @@ export default function NewProjectPage() {
                   </>
                 )}
               </div>
-            )}
-            {source === "manual" && (
-              <div className={styles.manualRepoRow}>
-                <label className={styles.manualRepoLabel}>Repository URL (private repo)</label>
-                <div className={styles.inputWrap}>
-                  <input
-                    className={styles.input}
-                    placeholder="https://github.com/username/repo-name.git"
-                    value={manualRepoUrl}
-                    onChange={(e) => setManualRepoUrl(e.target.value)}
-                  />
-                </div>
-                <p className={styles.manualRepoHint}>
-                  Build will clone this private repository using your GitHub token.
-                </p>
-              </div>
-            )}
-            {source === "zip" && (
-              <div className={styles.uploadSection}>
-                <input
-                  ref={zipInputRef}
-                  type="file"
-                  accept=".zip"
-                  onChange={(e) => {
-                    setDragOver(false)
-                    setZipFile(e.target.files?.[0] || null)
-                  }}
-                  className={styles.uploadLabel}
-                />
-                <span className={styles.uploadLabelText}>or upload a ZIP file</span>
-              </div>
-            )}
-          </div>
-        )}
+            ) : (
               <>
                 <div
                   className={`${styles.dropzone} ${dragOver ? styles.dropzoneActive : ""}`}
