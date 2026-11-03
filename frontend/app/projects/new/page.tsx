@@ -411,7 +411,7 @@ export default function NewProjectPage() {
                 )}
               </div>
             ) : source === "manual" ? (
-              <div className={styles.manualRepoRow} style={{ padding: 24 }}>
+              <div className={styles.manualRepoRow} style={{ padding: "8px 0" }}>
                 <label className={styles.manualRepoLabel} style={{ fontWeight: 600, fontSize: 14, color: "#171717", marginBottom: 8, display: "block" }}>Paste repository URL (private repo)</label>
                 <div className={styles.inputWrap}>
                   <input
