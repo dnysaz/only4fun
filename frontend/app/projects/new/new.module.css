@@ -47,63 +47,97 @@
   margin: 4px 0 0;
 }
 
-/* Tab sumber: teks dengan garis bawah, bukan pill. */
+/* Tab sumber: segmented pill dengan ikon. */
 .tabs {
   display: flex;
-  gap: 20px;
+  gap: 4px;
   margin: 18px 0 0;
-  border-bottom: 1px solid #e4e4e4;
+  padding: 4px;
+  background: #f5f5f5;
+  border: 1px solid #e9e9e9;
+  border-radius: 12px;
 }
 
 .tab {
   appearance: none;
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   background: none;
   border: none;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  padding: 0 0 10px;
+  border-radius: 9px;
+  padding: 9px 12px;
   font: inherit;
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 550;
   color: #5f5f5f;
   cursor: pointer;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  transition: color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .tab:hover {
   color: #171717;
+  background: rgba(255, 255, 255, 0.6);
 }
 
 .tabActive {
   color: #171717;
-  border-bottom-color: #171717;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.tabIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .searchWrap {
-  margin: 18px 0 4px;
+  margin: 18px 0 14px;
+}
+
+.searchBox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #e2e2e2;
+  border-radius: 10px;
+  background: #fff;
+  padding: 0 12px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.searchBox:focus-within {
+  border-color: #171717;
+  box-shadow: 0 0 0 3px rgba(23, 23, 23, 0.06);
 }
 
 .search {
+  flex: 1;
   width: 100%;
   box-sizing: border-box;
   border: none;
-  border-bottom: 1px solid #e4e4e4;
   border-radius: 0;
   background: transparent;
-  padding: 9px 0;
+  padding: 11px 0;
   font: inherit;
   font-size: 14px;
   color: #171717;
   outline: none;
-  transition: border-color 0.15s ease;
 }
 
 .search::placeholder {
   color: #9a9a9a;
 }
 
-.search:focus {
-  border-bottom-color: #171717;
+.searchIcon {
+  display: inline-flex;
+  align-items: center;
+  color: #8a8a8a;
+  flex-shrink: 0;
 }
 
 .searchMeta {
@@ -116,10 +150,11 @@
 }
 
 .repoList {
-  margin-top: 10px;
+  margin-top: 6px;
   max-height: 400px;
   overflow-y: auto;
-  border-top: 1px solid #e9e9e9;
+  border: 1px solid #e9e9e9;
+  border-radius: 10px;
   scrollbar-width: thin;
 }
 
@@ -129,7 +164,7 @@
   gap: 12px;
   width: 100%;
   box-sizing: border-box;
-  padding: 12px 10px;
+  padding: 12px 12px;
   border: none;
   border-bottom: 1px solid #e9e9e9;
   background: transparent;
@@ -137,6 +172,10 @@
   font: inherit;
   cursor: pointer;
   transition: background 0.12s ease, box-shadow 0.12s ease;
+}
+
+.repoRow:last-child {
+  border-bottom: none;
 }
 
 .repoRow:hover {
@@ -172,6 +211,26 @@
   font-size: 14px;
   font-weight: 700;
   color: #171717;
+}
+
+.repoOpen {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid #e4e4e4;
+  background: #fff;
+  color: #5f5f5f;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.repoOpen:hover {
+  color: #171717;
+  border-color: #c9c9c9;
+  background: #f6f6f6;
 }
 
 .empty {
