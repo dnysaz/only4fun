@@ -45,6 +45,13 @@ func SiteHandler(cfg *config.Config, projectStore *database.ProjectStore, pm *Pr
 		if i := strings.LastIndex(host, ":"); i > -1 {
 			host = host[:i]
 		}
+		// Nginx proxy bisa mengirim Host alternatif via X-Forwarded-Host
+		if xf := c.Request.Header.Get("X-Forwarded-Host"); xf != "" {
+			if i := strings.LastIndex(xf, ":"); i > -1 {
+				xf = xf[:i]
+			}
+			host = strings.ToLower(xf)
+		}
 
 		// Subdomain platform (project.only4.fun) dicari lewat nama project,
 		// sedangkan host lain dicari sebagai domain kustom project.
