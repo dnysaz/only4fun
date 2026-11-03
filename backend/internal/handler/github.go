@@ -56,7 +56,9 @@ func (h *GitHubHandler) GetRepoContents(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create the GitHub request"})
 		return
 	}
-	req.Header.Set("Authorization", "Bearer "+session.Token)
+	if session != nil {
+		req.Header.Set("Authorization", "Bearer "+session.Token)
+	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 
 	resp, err := (&http.Client{Timeout: 15 * time.Second}).Do(req)
@@ -99,11 +101,6 @@ func (h *GitHubHandler) GetRepoContents(c *gin.Context) {
 // GetRepoReadme mengambil isi README repo dari GitHub API.
 func (h *GitHubHandler) GetRepoReadme(c *gin.Context) {
 	session, ok := h.sessionFromRequest(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid session"})
-		return
-	}
-
 	owner := c.Param("owner")
 	repo := c.Param("repo")
 	if owner == "" || repo == "" {
@@ -122,7 +119,9 @@ func (h *GitHubHandler) GetRepoReadme(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create the GitHub request"})
 		return
 	}
-	req.Header.Set("Authorization", "Bearer "+session.Token)
+	if session != nil {
+		req.Header.Set("Authorization", "Bearer "+session.Token)
+	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 
 	resp, err := (&http.Client{Timeout: 15 * time.Second}).Do(req)
@@ -220,7 +219,9 @@ func (h *GitHubHandler) ListRepos(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create the GitHub request"})
 		return
 	}
-	req.Header.Set("Authorization", "Bearer "+session.Token)
+	if session != nil {
+		req.Header.Set("Authorization", "Bearer "+session.Token)
+	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	resp, err := (&http.Client{Timeout: 15 * time.Second}).Do(req)
 	if err != nil {
