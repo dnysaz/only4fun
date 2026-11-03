@@ -27,6 +27,13 @@ func SiteHandler(cfg *config.Config, projectStore *database.ProjectStore, pm *Pr
 	sitesDir := cfg.Build.SitesDir
 
 	return func(c *gin.Context) {
+		defer func() {
+			if r := recover(); r != nil {
+				c.Header("Content-Type", "text/html; charset=utf-8")
+				c.String(http.StatusInternalServerError, errorPage(500, "Server Error", "Something went wrong. Please try again later.", "Go to homepage"))
+			}
+		}()
+
 		if c.Request.Method != http.MethodGet && c.Request.Method != http.MethodHead &&
 			c.Request.Method != http.MethodPost && c.Request.Method != http.MethodPut &&
 			c.Request.Method != http.MethodPatch && c.Request.Method != http.MethodDelete {
@@ -74,7 +81,8 @@ func SiteHandler(cfg *config.Config, projectStore *database.ProjectStore, pm *Pr
 		}
 
 		if project == nil {
-			c.String(http.StatusNotFound, "site not found")
+			c.Header("Content-Type", "text/html; charset=utf-8")
+			c.String(http.StatusNotFound, errorPage(404, "Subdomain not found", "Want to use this subdomain?", "Register your project at only4.fun"))
 			return
 		}
 		if project.Status != "deployed" {
@@ -246,4 +254,44 @@ func isDocumentRequest(rel string) bool {
 	default:
 		return false
 	}
+}
+
+// errorPage generates a custom HTML error page.
+func errorPage(statusCode int, title string, message string, ctaText string) string {
+	return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>` + title + ` — only4.fun</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+           display: flex; align-items: center; justify-content: center; min-height: 100vh; 
+           margin: 0; background: #fafafa; color: #171717; }
+    .card { text-align: center; max-width: 480px; padding: 48px 32px; border: 1px solid #e2e2e2; 
+            border-radius: 12px; background: #fff; }
+    .icon { width: 96px; height: 96px; margin: 0 auto 24px; background: #f0f0f0; 
+            border-radius: 50%; display: flex; align-items: center; justify-content: center; 
+            font-size: 64px; color: #8a8a8a; }
+    h1 { font-size: 28px; margin: 0 0 12px; color: #171717; font-weight: 700; }
+    p { color: #666; font-size: 15px; line-height: 1.6; margin: 0 0 24px; }
+    .cta { display: inline-block; padding: 12px 24px; margin-top: 8px; 
+           background: #171717; color: #fff; text-decoration: none; 
+           border-radius: 8px; font-size: 14px; font-weight: 600; }
+    .cta:hover { background: #2563eb; }
+    .status { display: inline-block; padding: 4px 12px; margin-bottom: 16px; 
+              border-radius: 999px; background: #f0f7ff; color: #2563eb; 
+              font-size: 12px; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">404</div>
+    <span class="status">Error ` + fmt.Sprintf("%d", statusCode) + `</span>
+    <h1>` + title + `</h1>
+    <p>` + message + `</p>
+    <a href="/" class="cta">` + ctaText + `</a>
+  </div>
+</body>
+</html>`
 }
