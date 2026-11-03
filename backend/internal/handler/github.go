@@ -100,7 +100,7 @@ func (h *GitHubHandler) GetRepoContents(c *gin.Context) {
 
 // GetRepoReadme mengambil isi README repo dari GitHub API.
 func (h *GitHubHandler) GetRepoReadme(c *gin.Context) {
-	session, ok := h.sessionFromRequest(c)
+	session, _ := h.sessionFromRequest(c)
 	owner := c.Param("owner")
 	repo := c.Param("repo")
 	if owner == "" || repo == "" {
