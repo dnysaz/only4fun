@@ -79,7 +79,7 @@ export default function NewProjectPage() {
   }, [repos, repoQuery])
 
   const hasGitSource = Boolean(selectedRepo || manualRepoUrl)
-  const hasSource = source === "github" ? hasGitSource : Boolean(zipFile)
+  const hasSource = source === "zip" ? Boolean(zipFile) : hasGitSource
   const canDeploy =
     hasSource &&
     (source !== "manual" || manualContinue) &&
@@ -700,16 +700,18 @@ export default function NewProjectPage() {
                 <div className={styles.summaryRow}>
                   <span className={styles.summaryLabel}>Source</span>
                   <span className={styles.summaryValue}>
-                    {source === "github" ? (
-                      selectedRepo ? (
-                        <strong>{selectedRepo.full_name}</strong>
+                    {source === "zip" ? (
+                      zipFile ? (
+                        <strong>{zipFile.name}</strong>
                       ) : (
-                        <span className={styles.summaryEmpty}>No repository selected</span>
+                        <span className={styles.summaryEmpty}>No ZIP chosen</span>
                       )
-                    ) : zipFile ? (
-                      <strong>{zipFile.name}</strong>
+                    ) : selectedRepo ? (
+                      <strong>{selectedRepo.full_name}</strong>
+                    ) : manualRepoUrl.trim() ? (
+                      <strong>{manualRepoUrl.trim()}</strong>
                     ) : (
-                      <span className={styles.summaryEmpty}>No ZIP chosen</span>
+                      <span className={styles.summaryEmpty}>No repository selected</span>
                     )}
                   </span>
                 </div>
