@@ -271,8 +271,8 @@ func errorPage(statusCode int, title string, message string, ctaText string) str
     .card { text-align: center; max-width: 480px; padding: 48px 32px; border: 1px solid #e2e2e2; 
             border-radius: 12px; background: #fff; }
     .icon { width: 96px; height: 96px; margin: 0 auto 24px; background: #f0f0f0; 
-            border-radius: 50%; display: flex; align-items: center; justify-content: center; 
-            font-size: 64px; color: #8a8a8a; }
+            border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+    .icon svg { width: 48px; height: 48px; fill: #8a8a8a; }
     h1 { font-size: 28px; margin: 0 0 12px; color: #171717; font-weight: 700; }
     p { color: #666; font-size: 15px; line-height: 1.6; margin: 0 0 24px; }
     .cta { display: inline-block; padding: 12px 24px; margin-top: 8px; 
@@ -286,7 +286,9 @@ func errorPage(statusCode int, title string, message string, ctaText string) str
 </head>
 <body>
   <div class="card">
-    <div class="icon">404</div>
+    <div class="icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
     <span class="status">Error ` + fmt.Sprintf("%d", statusCode) + `</span>
     <h1>` + title + `</h1>
     <p>` + message + `</p>
