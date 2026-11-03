@@ -36,11 +36,7 @@ func NewGitHubHandler(sessionStore *database.SessionStore) *GitHubHandler {
 
 // GetRepoContents mengambil daftar file/folder di root repo dari GitHub API.
 func (h *GitHubHandler) GetRepoContents(c *gin.Context) {
-	session, ok := h.sessionFromRequest(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid session"})
-		return
-	}
+	session, _ := h.sessionFromRequest(c)
 
 	owner := c.Param("owner")
 	repo := c.Param("repo")
