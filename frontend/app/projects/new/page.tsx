@@ -406,6 +406,19 @@ export default function NewProjectPage() {
                   </>
                 )}
               </div>
+            ) : source === "manual" ? (
+              <div className={styles.manualRepoRow} style={{ padding: 24 }}>
+                <label className={styles.manualRepoLabel} style={{ fontWeight: 600, fontSize: 14, color: "#171717", marginBottom: 8, display: "block" }}>Paste repository URL (private repo)</label>
+                <div className={styles.inputWrap}>
+                  <input
+                    className={styles.input}
+                    placeholder="https://github.com/username/repo-name.git"
+                    value={manualRepoUrl}
+                    onChange={(e) => setManualRepoUrl(e.target.value)}
+                  />
+                </div>
+                <p className={styles.manualRepoHint}>Build will clone this private repo using your GitHub token.</p>
+              </div>
             ) : (
               <>
                 <div
