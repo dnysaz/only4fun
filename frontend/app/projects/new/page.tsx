@@ -440,9 +440,10 @@ export default function NewProjectPage() {
                       const hasReadme = items.some(i=>i.name.toLowerCase().includes("readme"))
                       setRepoCheckResult({ items, hasReadme })
                       setRepoChecked(true)
-                    } catch {
+                    } catch (err: any) {
                       setRepoCheckResult({ items: [], hasReadme: false })
                       setRepoChecked(true)
+                      console.error("Repo check failed:", err)
                     } finally {
                       setRepoCheckLoading(false)
                     }
