@@ -41,10 +41,11 @@ export default function NewProjectPage() {
   const [formError, setFormError] = useState("")
   const [repoQuery, setRepoQuery] = useState("")
   const [manualRepoUrl, setManualRepoUrl] = useState("")
-  const [repoCheckResult, setRepoCheckResult] = useState<{items?:{name:string;type:string}[];hasReadme?:boolean} | null>(null)
+  const [repoCheckResult, setRepoCheckResult] = useState<{items?:{name:string;type:string;size?:number}[];readme?:string} | null>(null)
   const [repoCheckLoading, setRepoCheckLoading] = useState(false)
   const [repoChecked, setRepoChecked] = useState(false)
   const [manualContinue, setManualContinue] = useState(false)
+  const [manualPreviewTab, setManualPreviewTab] = useState<"code" | "readme">("code")
   // Repo yang sudah punya project hidup: deploy ulang diblokir lewat modal info,
   // bukan error merah kecil di bawah form.
   const [duplicate, setDuplicate] = useState<{ id: string; subdomain: string } | null>(null)
@@ -81,6 +82,7 @@ export default function NewProjectPage() {
   const hasSource = source === "github" ? hasGitSource : Boolean(zipFile)
   const canDeploy =
     hasSource &&
+    (source !== "manual" || manualContinue) &&
     Boolean(subdomain) &&
     subdomainStatus !== "taken" &&
     subdomainStatus !== "invalid" &&
@@ -429,20 +431,28 @@ export default function NewProjectPage() {
                   onClick={async () => {
                     setRepoCheckLoading(true)
                     setRepoCheckResult(null)
+                    setManualPreviewTab("code")
                     try {
                       const url = new URL(manualRepoUrl.trim())
                       const path = url.pathname.replace(/\.git$/i, "").replace(/^\//, "")
                       const [owner, repo] = path.split("/")
                       if (!owner || !repo) throw new Error("Invalid URL")
-                      const res = await apiFetch(`/api/github/repos/${owner}/${repo}/contents`)
-                      const data = await res.json()
-                      const raw = data.contents || data
-                      const items = Array.isArray(raw) ? raw.map((i:any)=>({name:String(i.name||""),type:String(i.type||"")})) : []
-                      const hasReadme = items.some(i=>i.name.toLowerCase().includes("readme"))
-                      setRepoCheckResult({ items, hasReadme })
+                      const [contentsRes, readmeRes] = await Promise.all([
+                        apiFetch(`/api/github/repos/${owner}/${repo}/contents`),
+                        apiFetch(`/api/github/repos/${owner}/${repo}/readme`),
+                      ])
+                      const data = contentsRes.ok ? await contentsRes.json() : {}
+                      const raw = data.contents || []
+                      const items = Array.isArray(raw) ? raw.map((i:any)=>({name:String(i.name||""),type:String(i.type||""),size:Number(i.size||0)})) : []
+                      let readme = ""
+                      if (readmeRes.ok) {
+                        const rd = await readmeRes.json()
+                        readme = String(rd.readme || "")
+                      }
+                      setRepoCheckResult({ items, readme })
                       setRepoChecked(true)
                     } catch (err: any) {
-                      setRepoCheckResult({ items: [], hasReadme: false })
+                      setRepoCheckResult({ items: [], readme: "" })
                       setRepoChecked(true)
                       console.error("Repo check failed:", err)
                     } finally {
@@ -453,52 +463,78 @@ export default function NewProjectPage() {
                   {repoCheckLoading ? "Checking..." : repoChecked ? "Checked" : "Check repo"}
                 </button>
                 {repoChecked && repoCheckResult && (
-                  <div style={{ marginTop: 16, padding: 14, background: "#f6f6f6", borderRadius: 8, border: "1px solid #eaeaea", fontSize: 13 }}>
-                    <div style={{ fontWeight: 600, marginBottom: 6 }}>Repo preview</div>
-                    <div style={{ color: "#555" }}>
-                      {repoCheckResult.items && repoCheckResult.items.length > 0 ? (
-                        <ul style={{ paddingLeft: 16, margin: "6px 0", lineHeight: 1.7 }}>
-                          {repoCheckResult.items.map(i => (
-                            <li key={i.name}>{i.name} <span style={{ color: "#aaa", fontSize: 11 }}>({i.type})</span></li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <span style={{ color: "#999" }}>No files visible (repo might be private or empty)</span>
-                      )}
+                  <div style={{ marginTop: 16, border: "1px solid #e9e9e9", borderRadius: 8, overflow: "hidden" }}>
+                    <div style={{ display: "flex", gap: 4, borderBottom: "1px solid #e9e9e9", background: "#fafafa", padding: "0 8px" }}>
+                      <button
+                        type="button"
+                        onClick={() => setManualPreviewTab("code")}
+                        style={{
+                          padding: "8px 16px", border: "none",
+                          borderBottom: manualPreviewTab === "code" ? "2px solid #171717" : "2px solid transparent",
+                          background: "transparent", cursor: "pointer", fontSize: "11pt",
+                          fontWeight: manualPreviewTab === "code" ? 600 : 400,
+                          color: manualPreviewTab === "code" ? "#171717" : "#8a8a8a",
+                          fontFamily: "inherit",
+                        }}
+                      >Code</button>
+                      <button
+                        type="button"
+                        onClick={() => setManualPreviewTab("readme")}
+                        style={{
+                          padding: "8px 16px", border: "none",
+                          borderBottom: manualPreviewTab === "readme" ? "2px solid #171717" : "2px solid transparent",
+                          background: "transparent", cursor: "pointer", fontSize: "11pt",
+                          fontWeight: manualPreviewTab === "readme" ? 600 : 400,
+                          color: manualPreviewTab === "readme" ? "#171717" : "#8a8a8a",
+                          fontFamily: "inherit",
+                        }}
+                      >Readme</button>
                     </div>
-                    <div style={{ marginTop: 6 }}>
-                      {repoCheckResult.hasReadme ? (
-                        <span style={{ color: "#1a7f37", fontWeight: 600 }}>README.md found</span>
+                    <div style={{ padding: 12 }}>
+                      {manualPreviewTab === "code" ? (
+                        repoCheckResult.items && repoCheckResult.items.length > 0 ? (
+                          <div style={{ border: "1px solid #e9e9e9", borderRadius: 8, overflow: "hidden" }}>
+                            {repoCheckResult.items.map((item, idx) => (
+                              <div key={item.name} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderBottom: idx < (repoCheckResult.items?.length || 0) - 1 ? "1px solid #f0f0f0" : "none", fontSize: "11pt" }}>
+                                <span style={{ color: item.type === "dir" ? "#2563eb" : "#8a8a8a", fontSize: 14 }}>{item.type === "dir" ? "📁" : "📄"}</span>
+                                <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.name}</span>
+                                {item.type === "file" && item.size ? (
+                                  <span style={{ fontSize: "9pt", color: "#aaa" }}>{(item.size / 1024).toFixed(1)} KB</span>
+                                ) : null}
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p style={{ color: "#8a8a8a", fontSize: "11pt", margin: 0 }}>No files visible (repo might be private or empty).</p>
+                        )
+                      ) : repoCheckResult.readme ? (
+                        <pre style={{
+                          background: "#f8f8f8", border: "1px solid #e9e9e9", borderRadius: 8, padding: 16,
+                          fontSize: "10pt", lineHeight: 1.6, overflow: "auto", maxHeight: "40vh",
+                          whiteSpace: "pre-wrap", wordBreak: "break-word",
+                          fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", margin: 0,
+                        }}>{repoCheckResult.readme}</pre>
                       ) : (
-                        <span style={{ color: "#b35900", fontWeight: 600 }}>No README.md</span>
+                        <p style={{ color: "#8a8a8a", fontSize: "11pt", margin: 0 }}>No README found in this repository.</p>
                       )}
                     </div>
                     {!manualContinue && (
-                      <button
-                        type="button"
-                        className={`${styles.btn} ${styles.btnPrimary}`}
-                        style={{ marginTop: 12, padding: "10px 16px", borderRadius: 8, background: "#171717", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600, fontSize: 13 }}
-                        onClick={() => setManualContinue(true)}
-                      >
-                        Continue
-                      </button>
+                      <div style={{ padding: "0 12px 12px" }}>
+                        <button
+                          type="button"
+                          style={{ padding: "10px 16px", borderRadius: 8, background: "#171717", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600, fontSize: 13 }}
+                          onClick={() => setManualContinue(true)}
+                        >
+                          Continue
+                        </button>
+                      </div>
                     )}
                   </div>
                 )}
                 {manualContinue && (
-                  <div style={{ marginTop: 16, padding: 12, background: "#f0f7ff", borderRadius: 8, border: "1px solid #d6e4ff" }}>
-                    <label style={{ fontWeight: 600, fontSize: 14, display: "block", marginBottom: 4 }}>Subdomain</label>
-                    <div className={styles.inputWrap}>
-                      <input
-                        className={styles.input}
-                        placeholder="my-site"
-                        value={subdomain}
-                        onChange={(e) => setSubdomain(e.target.value)}
-                      />
-                      <span style={{ color: "#888", fontSize: 12, marginLeft: 4 }}>{`only4.fun`}</span>
-                    </div>
-                    <p className={styles.manualRepoHint}>After confirming subdomain, click Deploy.</p>
-                  </div>
+                  <p className={styles.manualRepoHint} style={{ marginTop: 12, color: "#1a7f37", fontWeight: 600 }}>
+                    Continue — fill the subdomain on the right and click Deploy.
+                  </p>
                 )}
                 <p className={styles.manualRepoHint} style={{ marginTop: 8 }}>Build will clone this private repository using your GitHub token.</p>
               </div>
@@ -569,6 +605,7 @@ export default function NewProjectPage() {
                     value={subdomain}
                     onChange={(e) => handleSubdomainChange(e.target.value)}
                     placeholder="myproject"
+                    disabled={source === "manual" && !manualContinue}
                     autoComplete="off"
                     spellCheck={false}
                     aria-describedby="project-name-status"
