@@ -41,9 +41,11 @@ func SiteHandler(cfg *config.Config, projectStore *database.ProjectStore, pm *Pr
 
 		// Subdomain platform (project.only4.fun) dicari lewat nama project,
 		// sedangkan host lain dicari sebagai domain kustom project.
+		// Ambil subdomain dari host (*.only4.fun).
 		var project *database.Project
+		var subdomain string
 		if domain != "" && strings.HasSuffix(host, "."+domain) {
-			subdomain := strings.TrimSuffix(host, "."+domain)
+			subdomain = strings.TrimSuffix(host, "."+domain)
 			// Hanya satu label: portfolio.only4.fun, bukan a.b.only4.fun
 			if subdomain != "" && !strings.Contains(subdomain, ".") {
 				project, _ = projectStore.GetBySubdomain(subdomain)
@@ -51,6 +53,26 @@ func SiteHandler(cfg *config.Config, projectStore *database.ProjectStore, pm *Pr
 		} else {
 			project, _ = projectStore.GetByCustomDomain(host)
 		}
+
+		// Fallback: serve static site langsung dari disk jika project tidak ditemukan di DB
+		if project == nil && subdomain != "" {
+			subdomainFolder := filepath.Join(sitesDir, subdomain)
+			indexPath := filepath.Join(subdomainFolder, "index.html")
+			if _, err := os.Stat(indexPath); err == nil {
+				c.File(indexPath)
+				return
+			}
+			releasesDir := filepath.Join(filepath.Dir(sitesDir), ".releases", subdomain)
+			if entries, err := os.ReadDir(releasesDir); err == nil && len(entries) > 0 {
+				latest := entries[len(entries)-1].Name()
+				indexPath = filepath.Join(releasesDir, latest, "index.html")
+				if _, err := os.Stat(indexPath); err == nil {
+					c.File(indexPath)
+					return
+				}
+			}
+		}
+
 		if project == nil {
 			c.String(http.StatusNotFound, "site not found")
 			return
