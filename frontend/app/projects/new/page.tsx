@@ -424,7 +424,7 @@ export default function NewProjectPage() {
                 <button
                   type="button"
                   className={`${styles.btn} ${styles.btnSecondary}`}
-                  style={{ marginTop: 12, minWidth: 140 }}
+                  style={{ marginTop: 12, minWidth: 140, padding: "10px 16px", borderRadius: 8, border: "1px solid #ddd", background: "#fff", cursor: "pointer" }}
                   disabled={!manualRepoUrl.trim() || repoCheckLoading || repoChecked}
                   onClick={async () => {
                     setRepoCheckLoading(true)
@@ -461,7 +461,7 @@ export default function NewProjectPage() {
                           ))}
                         </ul>
                       ) : (
-                        <span style={{ color: "#999" }}>No files found at root</span>
+                        <span style={{ color: "#999" }}>No files visible (repo might be private or empty)</span>
                       )}
                     </div>
                     <div style={{ marginTop: 6 }}>
@@ -475,7 +475,7 @@ export default function NewProjectPage() {
                       <button
                         type="button"
                         className={`${styles.btn} ${styles.btnPrimary}`}
-                        style={{ marginTop: 12 }}
+                        style={{ marginTop: 12, padding: "10px 16px", borderRadius: 8, background: "#171717", color: "#fff", border: "none", cursor: "pointer", fontWeight: 600, fontSize: 13 }}
                         onClick={() => setManualContinue(true)}
                       >
                         Continue
