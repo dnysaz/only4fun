@@ -51,7 +51,8 @@ func main() {
 	worker.Start(*workers)
 
 	// Buat dan jalankan HTTP server
-	srv := server.New(cfg, db, worker)
+	srv, pm := server.New(cfg, db, worker)
+	pm.RegisterSignalHandler()
 	log.Printf("only4.fun backend listening on %s", cfg.Server.Addr)
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("Server error: %v", err)

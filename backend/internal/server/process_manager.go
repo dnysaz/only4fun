@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strconv"
 	"sync"
@@ -227,6 +228,63 @@ func (pm *ProcessManager) StopAll() {
 		}
 		delete(pm.processes, subdomain)
 	}
+}
+
+// StopAllGraceful menghentikan semua proses Node.js secara rapi (SIGTERM),
+// lalu menunggu maksimal graceTimeout sebelum dipaksa matikan.
+func (pm *ProcessManager) StopAllGraceful(graceTimeout time.Duration) {
+	pm.mu.Lock()
+	defer pm.mu.Unlock()
+
+	for subdomain, p := range pm.processes {
+		if p.Cmd.Process == nil {
+			delete(pm.processes, subdomain)
+			continue
+		}
+		// Kirim SIGTERM agar Node.js bisa menyelesaikan request yang sedang berjalan.
+		_ = p.Cmd.Process.Signal(syscall.SIGTERM)
+		log.Printf("SSR server graceful shutdown started for %s", subdomain)
+	}
+
+	if graceTimeout <= 0 {
+		return
+	}
+
+	// Tunggu hingga semua proses keluar atau timeout.
+	done := make(chan struct{})
+	go func() {
+		for _, p := range pm.processes {
+			_ = p.Cmd.Wait()
+		}
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(graceTimeout):
+		// Paksa matikan yang tersisa.
+		for subdomain, p := range pm.processes {
+			if p.Cmd.Process != nil {
+				_ = p.Cmd.Process.Kill()
+				_ = p.Cmd.Wait()
+			}
+			delete(pm.processes, subdomain)
+		}
+	}
+}
+
+// RegisterSignalHandler mendaftarkan handler SIGTERM/SIGINT agar proses
+// Node.js (SSR) dihentikan secara rapi saat backend dihentikan (misal
+// `systemctl restart`). Setelah selesai, os.Exit(0) dipanggil.
+func (pm *ProcessManager) RegisterSignalHandler() {
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		<-c
+		log.Println("received shutdown signal, stopping SSR servers gracefully...")
+		pm.StopAllGraceful(10 * time.Second)
+		os.Exit(0)
+	}()
 }
 
 func isProcessAlive(p *Process) bool {

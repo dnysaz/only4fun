@@ -432,11 +432,32 @@ func publish(src, dst string) error {
 		return fmt.Errorf("failed to prepare release folder: %w", err)
 	}
 
+	// Cari rilis sebelumnya (yang masih aktif) sebagai referensi incremental.
+	var previousRelease string
+	entries, _ := os.ReadDir(releasesDir)
+	if len(entries) > 0 {
+		type relInfo struct {
+			name string
+			mod  time.Time
+		}
+		var rels []relInfo
+		for _, e := range entries {
+			info, _ := e.Info()
+			rels = append(rels, relInfo{name: e.Name(), mod: info.ModTime()})
+		}
+		sort.Slice(rels, func(i, j int) bool { return rels[i].mod.After(rels[j].mod) })
+		// Rilis terbaru (rels[0]) adalah yang sedang aktif, jadi kita bandingkan
+		// dengan rilis itu untuk incremental copy.
+		if len(rels) >= 1 {
+			previousRelease = filepath.Join(releasesDir, rels[0].name)
+		}
+	}
+
 	release, err := os.MkdirTemp(releasesDir, "release-")
 	if err != nil {
 		return fmt.Errorf("failed to prepare release folder: %w", err)
 	}
-	if err := copyTree(src, release); err != nil {
+	if err := copyTree(src, release, previousRelease); err != nil {
 		_ = os.RemoveAll(release)
 		return fmt.Errorf("failed to copy build output: %w", err)
 	}
@@ -499,7 +520,7 @@ func pruneReleases(dir string, keep int) {
 	}
 }
 
-func copyTree(src, dst string) error {
+func copyTree(src, dst string, previousRelease string) error {
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -522,6 +543,24 @@ func copyTree(src, dst string) error {
 		if info.Mode()&os.ModeSymlink != 0 {
 			return nil
 		}
+
+		// Jika ada previousRelease dan file sudah ada di previousRelease dengan ukuran dan waktu yang sama,
+		// gunakan hardlink agar tidak perlu menyalin ulang.
+		if previousRelease != "" {
+			prevPath := filepath.Join(previousRelease, rel)
+			if info.IsDir() {
+				prevInfo, _ := os.Stat(prevPath)
+				if prevInfo != nil && prevInfo.IsDir() && prevInfo.ModTime().Equal(info.ModTime()) && prevInfo.Size() == info.Size() {
+					return nil
+				}
+			} else {
+				prevInfo, _ := os.Stat(prevPath)
+				if prevInfo != nil && prevInfo.Size() == info.Size() && prevInfo.ModTime().Equal(info.ModTime()) {
+					return os.Link(prevPath, target)
+				}
+			}
+		}
+
 		in, err := os.Open(path)
 		if err != nil {
 			return err
