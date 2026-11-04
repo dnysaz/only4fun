@@ -70,10 +70,16 @@ func NewRouter(cfg *config.Config, db *database.Database, worker *builder.Worker
 	projectHandler := handler.NewProjectHandler(projectStore, userStore, sessionStore, stores.Deployment, worker, dns.New(cfg.Cloudflare), pm, cfg.Build.SitesDir, cfg.Server.FrontendURL)
 	githubHandler := handler.NewGitHubHandler(sessionStore)
 
+	// Logging utama: durasi request, status, error count.
+	r.Use(RequestLogger())
+
 	// Health check (tanpa auth)
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
+
+	// Metrics endpoint
+	r.GET("/metrics", MetricsHandler())
 
 	// Webhook GitHub (tanpa session; diverifikasi lewat HMAC signature).
 	r.POST("/webhooks/github", RateLimit(120, time.Minute), projectHandler.HandleGitHubWebhook)
