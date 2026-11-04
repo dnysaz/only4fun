@@ -10,6 +10,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -18,6 +19,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+// subdomainLabel memastikan nama subdomain yang dipakai untuk lookup dan
+// path folder hanya berisi karakter DNS yang sah (mencegah path traversal).
+var subdomainLabel = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 
 // SiteHandler melayani hasil build berdasarkan Host request,
 // misal portfolio.only4.fun -> <SITES_DIR>/portfolio/index.html
@@ -46,13 +51,6 @@ func SiteHandler(cfg *config.Config, projectStore *database.ProjectStore, pm *Pr
 		if i := strings.LastIndex(host, ":"); i > -1 {
 			host = host[:i]
 		}
-		// Nginx proxy bisa mengirim Host alternatif via X-Forwarded-Host
-		if xf := c.Request.Header.Get("X-Forwarded-Host"); xf != "" {
-			if i := strings.LastIndex(xf, ":"); i > -1 {
-				xf = xf[:i]
-			}
-			host = strings.ToLower(xf)
-		}
 
 		// Subdomain platform (project.only4.fun) dicari lewat nama project,
 		// sedangkan host lain dicari sebagai domain kustom project.
@@ -61,8 +59,11 @@ func SiteHandler(cfg *config.Config, projectStore *database.ProjectStore, pm *Pr
 		var subdomain string
 		if domain != "" && strings.HasSuffix(host, "."+domain) {
 			subdomain = strings.TrimSuffix(host, "."+domain)
-			// Hanya satu label: portfolio.only4.fun, bukan a.b.only4.fun
-			if subdomain != "" && !strings.Contains(subdomain, ".") {
+			// Hanya satu label yang sah: portfolio.only4.fun, bukan a.b.only4.fun
+			// atau nama berisi "../" yang bisa keluar dari folder situs.
+			if !subdomainLabel.MatchString(subdomain) {
+				subdomain = ""
+			} else {
 				project, _ = projectStore.GetBySubdomain(subdomain)
 			}
 		} else {

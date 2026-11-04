@@ -7,7 +7,8 @@ import AppShell from "@/components/AppShell"
 import AuthGate from "@/components/AuthGate"
 import ContributionGraph, { ContributionDay } from "@/components/ContributionGraph"
 import { apiFetch } from "@/lib/api"
-import { optimizeReadmeHtml } from "@/lib/readme"
+import { sanitizeReadmeHtml } from "@/lib/readme"
+import { safeWebsiteUrl } from "@/lib/url"
 import { clearCurrentUser, useCurrentUser } from "@/lib/auth"
 import ui from "../ui.module.css"
 import styles from "./profile.module.css"
@@ -54,6 +55,8 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<GitHubProfile | null>(null)
   const [profileLoading, setProfileLoading] = useState(true)
   const [profileError, setProfileError] = useState("")
+  // README disanitasi di browser setelah mount; SSR tidak punya DOMParser.
+  const [readmeHtml, setReadmeHtml] = useState<string | null>(null)
 
   // Data tambahan dari GitHub (bio, README, kalender kontribusi) dimuat
   // terpisah supaya halaman tetap tampil walau GitHub tidak merespons.
@@ -89,6 +92,16 @@ export default function ProfilePage() {
       active = false
     }
   }, [loaded, user])
+
+  useEffect(() => {
+    if (!profile) {
+      setReadmeHtml(null)
+      return
+    }
+    setReadmeHtml(sanitizeReadmeHtml(profile.readme_html || ""))
+  }, [profile])
+
+  const blogUrl = safeWebsiteUrl(profile?.blog)
 
   const handleLogout = async () => {
     setLoggingOut(true)
@@ -234,15 +247,11 @@ export default function ProfilePage() {
                           <span className={styles.metaValue}>{profile.location}</span>
                         </div>
                       )}
-                      {profile.blog && (
+                      {blogUrl && (
                         <div className={styles.metaItem}>
                           <span className={styles.metaLabel}>Website</span>
                           <span className={styles.metaValue}>
-                            <a
-                              href={profile.blog.startsWith("http") ? profile.blog : `https://${profile.blog}`}
-                              target="_blank"
-                              rel="noreferrer"
-                            >
+                            <a href={blogUrl} target="_blank" rel="noreferrer">
                               {profile.blog.replace(/^https?:\/\//, "")}
                             </a>
                           </span>
@@ -308,7 +317,17 @@ export default function ProfilePage() {
                     Loading README...
                   </p>
                 ) : profile?.readme_html ? (
-                  <div className={styles.readme} dangerouslySetInnerHTML={{ __html: optimizeReadmeHtml(profile.readme_html) }} />
+                  readmeHtml ? (
+                    <div className={styles.readme} dangerouslySetInnerHTML={{ __html: readmeHtml }} />
+                  ) : readmeHtml === null ? (
+                    <p className={ui.empty} style={{ marginTop: 14 }}>
+                      Loading README...
+                    </p>
+                  ) : (
+                    <p className={ui.empty} style={{ marginTop: 14 }}>
+                      This README could not be displayed.
+                    </p>
+                  )
                 ) : (
                   <p className={ui.empty} style={{ marginTop: 14 }}>
                     No profile README found. Create a repository named <strong>{user.username}</strong> with a

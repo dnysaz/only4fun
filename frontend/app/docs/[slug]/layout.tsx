@@ -2,6 +2,7 @@ import type { Metadata } from "next"
 import { docMeta } from "../meta"
 import DocsBreadcrumbs from "../breadcrumbs"
 import { SITE_URL } from "@/lib/site"
+import { toJsonLd } from "@/lib/jsonld"
 
 export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
   const meta = docMeta[params.slug]
@@ -52,7 +53,7 @@ export default function DocSectionLayout({
   return (
     <>
       <DocsBreadcrumbs title={meta.title} slug={params.slug} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(article) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: toJsonLd(article) }} />
       {children}
     </>
   )

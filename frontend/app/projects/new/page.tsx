@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation"
 import AppShell from "@/components/AppShell"
 import AuthGate from "@/components/AuthGate"
 import { apiFetch } from "@/lib/api"
+import { safeExternalUrl } from "@/lib/url"
 import { useCurrentUser } from "@/lib/auth"
 import { validateProjectName } from "@/lib/check-word"
 import styles from "./new.module.css"
@@ -408,6 +409,7 @@ export default function NewProjectPage() {
                     <div className={styles.repoList} role="listbox" aria-label="Repositories">
                       {visibleRepos.map((r) => {
                         const active = selectedRepo?.full_name === r.full_name
+                        const repoLink = safeExternalUrl(r.html_url)
                         return (
                           <div
                             key={r.full_name}
@@ -436,19 +438,21 @@ export default function NewProjectPage() {
                               </div>
                             </div>
                             {active && <span className={styles.check}>✓</span>}
-                            <a
-                              href={r.html_url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className={styles.repoOpen}
-                              aria-label={`Open ${r.full_name} on GitHub`}
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <line x1="7" y1="17" x2="17" y2="7" />
-                                <polyline points="7 7 17 7 17 17" />
-                              </svg>
-                            </a>
+                            {repoLink && (
+                              <a
+                                href={repoLink}
+                                target="_blank"
+                                rel="noreferrer"
+                                className={styles.repoOpen}
+                                aria-label={`Open ${r.full_name} on GitHub`}
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                  <line x1="7" y1="17" x2="17" y2="7" />
+                                  <polyline points="7 7 17 7 17 17" />
+                                </svg>
+                              </a>
+                            )}
                           </div>
                         )
                       })}

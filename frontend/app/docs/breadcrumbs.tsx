@@ -1,4 +1,5 @@
 import { SITE_URL } from "@/lib/site"
+import { toJsonLd } from "@/lib/jsonld"
 
 /**
  * BreadcrumbList untuk mesin pencari: Home › Docs › Artikel.
@@ -24,5 +25,5 @@ export default function DocsBreadcrumbs({ title, slug }: { title: string; slug?:
     })),
   }
 
-  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }} />
+  return <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: toJsonLd(data) }} />
 }

@@ -10,6 +10,7 @@ import ConfirmModal from "@/components/ConfirmModal"
 import SidePanel from "@/components/SidePanel"
 import VisitsChart, { buildVisitSeries, formatDayLabel } from "@/components/VisitsChart"
 import { apiFetch } from "@/lib/api"
+import { safeExternalUrl } from "@/lib/url"
 import { useCurrentUser } from "@/lib/auth"
 import ui from "../../ui.module.css"
 
@@ -140,6 +141,9 @@ export default function ProjectDetailPage() {
     if (!project) return ""
     return `https://${project.subdomain}.only4.fun`
   }, [project])
+
+  // repo_url berasal dari database; jangan pernah jadikan href mentah-mentah.
+  const repoURL = useMemo(() => safeExternalUrl(project?.repo_url), [project])
 
   // Project dari unggahan ZIP tidak punya repo untuk di-redeploy.
   const isZipProject = Boolean(project?.repo_url?.startsWith("zip://"))
@@ -522,10 +526,12 @@ export default function ProjectDetailPage() {
               <Row label="Repository">
                 {isZipProject ? (
                   repoLabel(project.repo_url)
-                ) : (
-                  <a href={project.repo_url} target="_blank" rel="noreferrer">
+                ) : repoURL ? (
+                  <a href={repoURL} target="_blank" rel="noreferrer">
                     {repoLabel(project.repo_url)} ↗
                   </a>
+                ) : (
+                  repoLabel(project.repo_url)
                 )}
               </Row>
               <Row label="Subdomain">{project.subdomain}.only4.fun</Row>
