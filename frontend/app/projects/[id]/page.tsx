@@ -9,10 +9,13 @@ import BuildTerminal from "@/components/BuildTerminal"
 import ConfirmModal from "@/components/ConfirmModal"
 import SidePanel from "@/components/SidePanel"
 import VisitsChart, { buildVisitSeries, formatDayLabel } from "@/components/VisitsChart"
+import dynamic from "next/dynamic"
 import { apiFetch } from "@/lib/api"
 import { safeExternalUrl } from "@/lib/url"
 import { useCurrentUser } from "@/lib/auth"
 import ui from "../../ui.module.css"
+
+const LazyVisitsChart = dynamic(() => import("@/components/VisitsChart").then((m) => m.default), { ssr: false })
 
 interface DailyVisit {
   day: string
@@ -589,7 +592,7 @@ export default function ProjectDetailPage() {
             {visits.length === 0 ? (
               <p className={ui.empty}>No visits recorded yet.</p>
             ) : (
-              <VisitsChart visits={visits} />
+              <LazyVisitsChart visits={visits} />
             )}
           </div>
           <p className={ui.note}>Last visit: {fmtDate(project.last_visited_at)}</p>
