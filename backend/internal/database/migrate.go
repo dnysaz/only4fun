@@ -85,5 +85,11 @@ func Migrate(db *Database) error {
 	} {
 		_, _ = db.DB().Exec(stmt)
 	}
+
+	// Index tambahan untuk query yang sering dipakai.
+	_, _ = db.DB().Exec(`CREATE INDEX IF NOT EXISTS idx_projects_user_id ON projects(user_id)`)
+	_, _ = db.DB().Exec(`CREATE INDEX IF NOT EXISTS idx_projects_subdomain ON projects(subdomain)`)
+	_, _ = db.DB().Exec(`CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)`)
+	_, _ = db.DB().Exec(`CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)`)
 	return nil
 }
