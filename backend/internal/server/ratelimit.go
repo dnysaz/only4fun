@@ -73,9 +73,12 @@ func RateLimit(limit int, window time.Duration) gin.HandlerFunc {
 }
 
 func rateLimitKey(c *gin.Context) string {
-	// AuthMiddleware menyimpan user ID sebagai string (UUID v7), bukan int64.
-	// Sebelumnya type assertion ke int64 selalu gagal sehingga limit per user
-	// tidak pernah aktif dan semua pengguna di belakang satu IP berbagi kuota.
+	// Prioritas: session cookie > user ID (auth) > IP.
+	// Ini mencegah pengguna yang login berbagi kuota dengan pengguna lain
+	// di IP yang sama (mis. kantor, Wi-Fi publik).
+	if cookie, err := c.Cookie("session_id"); err == nil && cookie != "" {
+		return "session:" + cookie
+	}
 	if id, ok := c.Get("userID"); ok {
 		if userID, ok := id.(string); ok && userID != "" {
 			return "user:" + userID
