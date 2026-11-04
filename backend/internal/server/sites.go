@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"html"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -129,7 +130,7 @@ func SiteHandler(cfg *config.Config, projectStore *database.ProjectStore, pm *Pr
   })();
 </script>
 </body>
-</html>`, project.Status, project.Subdomain, project.Status)
+</html>`, html.EscapeString(project.Status), html.EscapeString(project.Subdomain), html.EscapeString(project.Status))
 			return
 		}
 

@@ -3,6 +3,7 @@ package builder
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/url"
@@ -101,7 +102,8 @@ func (b *Builder) clone(ctx context.Context, job Job, workDir string, logf func(
 		return fmt.Errorf("git is not available on the server")
 	}
 
-	cloneURL := authenticatedURL(job.RepoURL, job.Token)
+	cloneURL := job.RepoURL
+	authEnv := gitAuthEnv(job.RepoURL, job.Token)
 
 	// Coba shallow clone dulu (jauh lebih cepat), lalu fallback ke clone penuh
 	// bila server git tidak mendukungnya.
@@ -117,7 +119,7 @@ func (b *Builder) clone(ctx context.Context, job Job, workDir string, logf func(
 			_ = os.MkdirAll(workDir, 0o755)
 		}
 		cmd := exec.CommandContext(ctx, "git", args...)
-		cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+		cmd.Env = append(append(os.Environ(), "GIT_TERMINAL_PROMPT=0"), authEnv...)
 		out, err = cmd.CombinedOutput()
 		if err == nil {
 			return nil
@@ -537,17 +539,24 @@ func copyTree(src, dst string) error {
 	})
 }
 
-// authenticatedURL menyisipkan token ke URL clone agar repo privat bisa diakses.
-func authenticatedURL(repoURL, token string) string {
+// gitAuthEnv mengirim kredensial lewat konfigurasi Git di environment, bukan
+// di URL clone, agar token tidak muncul di `ps` maupun tersimpan di
+// .git/config pada direktori kerja.
+func gitAuthEnv(repoURL, token string) []string {
 	if token == "" {
-		return repoURL
+		return nil
 	}
 	u, err := url.Parse(repoURL)
 	if err != nil || u.Host == "" || u.Scheme != "https" {
-		return repoURL
+		return nil
 	}
-	u.User = url.UserPassword("x-access-token", token)
-	return u.String()
+	base := u.Scheme + "://" + u.Host + "/"
+	cred := base64.StdEncoding.EncodeToString([]byte("x-access-token:" + token))
+	return []string{
+		"GIT_CONFIG_COUNT=1",
+		"GIT_CONFIG_KEY_0=http." + base + ".extraheader",
+		"GIT_CONFIG_VALUE_0=Authorization: Basic " + cred,
+	}
 }
 
 func redact(s, secret string) string {

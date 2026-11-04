@@ -185,6 +185,14 @@ func validateRepoURL(repoURL string) error {
 	if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
 		return fmt.Errorf("repo_url must be a valid http(s) URL")
 	}
+	// Hanya izinkan GitHub: mencegah SSRF ke alamat internal lewat URL manual.
+	host := strings.ToLower(u.Hostname())
+	if host != "github.com" && host != "www.github.com" {
+		return fmt.Errorf("only GitHub repository URLs are supported")
+	}
+	if u.User != nil {
+		return fmt.Errorf("repo_url must not contain credentials")
+	}
 	return nil
 }
 

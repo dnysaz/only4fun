@@ -34,6 +34,11 @@ func NewStores(db *database.Database) *Stores {
 // NewRouter membuat Gin engine dengan semua route terdaftar.
 func NewRouter(cfg *config.Config, db *database.Database, worker *builder.Worker) *gin.Engine {
 	r := gin.Default()
+	// Percayai hanya reverse proxy lokal (nginx) agar X-Forwarded-For tidak
+	// bisa dipalsukan untuk melewati rate limit.
+	if err := r.SetTrustedProxies([]string{"127.0.0.1", "::1"}); err != nil {
+		panic(err)
+	}
 
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     cfg.Server.CORSOrigins,

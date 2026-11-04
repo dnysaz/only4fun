@@ -67,15 +67,34 @@ export function useCurrentUser() {
 
   useEffect(() => {
     let active = true
-    loadCurrentUser()
-      .then((next) => {
-        if (active) setUser(next)
-      })
-      .finally(() => {
-        if (active) setLoaded(true)
-      })
+    const refresh = () => {
+      loadCurrentUser()
+        .then((next) => {
+          if (active) setUser(next)
+        })
+        .finally(() => {
+          if (active) setLoaded(true)
+        })
+    }
+
+    refresh()
+
+    // Setelah laptop sleep / tab lama tidak aktif, sesi bisa sudah kedaluwarsa.
+    // Validasi ulang saat tab kembali terlihat atau mendapat fokus, sehingga
+    // halaman langsung diarahkan ke homepage alih-alih menampilkan error API.
+    const revalidate = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return
+      refresh()
+    }
+    window.addEventListener("focus", revalidate)
+    document.addEventListener("visibilitychange", revalidate)
+    const interval = window.setInterval(revalidate, 60_000)
+
     return () => {
       active = false
+      window.removeEventListener("focus", revalidate)
+      document.removeEventListener("visibilitychange", revalidate)
+      window.clearInterval(interval)
     }
   }, [])
 

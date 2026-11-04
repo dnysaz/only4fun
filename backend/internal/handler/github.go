@@ -40,8 +40,8 @@ func (h *GitHubHandler) GetRepoContents(c *gin.Context) {
 
 	owner := c.Param("owner")
 	repo := c.Param("repo")
-	if owner == "" || repo == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "owner and repo are required"})
+	if !validGitHubName(owner) || !validGitHubName(repo) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid owner or repo"})
 		return
 	}
 
@@ -103,8 +103,8 @@ func (h *GitHubHandler) GetRepoReadme(c *gin.Context) {
 	session, _ := h.sessionFromRequest(c)
 	owner := c.Param("owner")
 	repo := c.Param("repo")
-	if owner == "" || repo == "" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "owner and repo are required"})
+	if !validGitHubName(owner) || !validGitHubName(repo) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid owner or repo"})
 		return
 	}
 
@@ -264,4 +264,20 @@ func (h *GitHubHandler) ListRepos(c *gin.Context) {
 		"page":     page,
 		"has_more": len(result) == perPage,
 	})
+}
+
+// validGitHubName membatasi owner/repo ke karakter yang sah agar tidak bisa
+// menyisipkan query/path tambahan ke URL GitHub API.
+func validGitHubName(s string) bool {
+	if s == "" || len(s) > 100 {
+		return false
+	}
+	for _, c := range s {
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') ||
+			c == '-' || c == '_' || c == '.' {
+			continue
+		}
+		return false
+	}
+	return true
 }
