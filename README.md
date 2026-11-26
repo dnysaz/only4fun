@@ -76,6 +76,9 @@ anyone's launchpad.
 │   └── data/                     Local runtime data (git-kept placeholder only)
 ├── frontend/
 │   ├── public/favicon.svg        Four-dot favicon
+│   ├── public/og-image.png       Social sharing card (1200 × 630)
+│   ├── public/robots.txt         Crawler rules and sitemap link
+│   ├── public/sitemap.xml        Indexable public routes
 │   ├── src/
 │   │   ├── app.css               Design tokens, base styles, shared utilities
 │   │   ├── App.svelte            Route switchboard
@@ -96,6 +99,7 @@ anyone's launchpad.
 │   │       ├── InstantDeploy.svelte  No-login deploy form
 │   │       ├── InfoPage.svelte   Shared Docs/Status/Support/Terms/Privacy layout
 │   │       ├── router.svelte.js  Tiny History API router
+│   │       ├── seo.js            Route-aware titles, descriptions, canonical tags
 │   │       ├── session.svelte.js Session store
 │   │       ├── workspace.svelte.js Project store and polling
 │   │       ├── api.js            Fetch wrapper with credentials

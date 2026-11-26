@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /launchpad
+Disallow: /deploy
+Disallow: /project/
+Disallow: /api/
+Disallow: /auth/
+
+Sitemap: https://only4.fun/sitemap.xml

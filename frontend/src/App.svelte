@@ -15,9 +15,14 @@
   import { getRoute } from './lib/router.svelte.js';
   import { getInfoPage } from './lib/infoPages.js';
   import { loadSession } from './lib/session.svelte.js';
+  import { updateSeo } from './lib/seo.js';
 
   onMount(() => {
     loadSession();
+  });
+
+  $effect(() => {
+    updateSeo(getRoute());
   });
 </script>
 
