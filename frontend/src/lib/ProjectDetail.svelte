@@ -435,7 +435,7 @@
       {/if}
 
       <section class="panel overview">
-        <div><span>Repository</span><b class="mono">{repo}</b></div>
+        <div><span>Repository</span><b>{repo}</b></div>
         <div><span>Created</span><b>{fmt(project.created_at)}</b></div>
         <div><span>Last deploy</span><b>{fmt(project.updated_at)}</b></div>
         <div>
@@ -875,10 +875,6 @@
 
   .overview-link:hover {
     color: var(--blue);
-  }
-
-  .mono {
-    font-family: 'DM Mono', monospace;
   }
 
   .columns {
