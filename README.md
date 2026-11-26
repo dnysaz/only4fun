@@ -13,6 +13,9 @@ public GitHub repository or drop a ZIP and the site goes live at a
   `asj3jkha.only4.fun`. The address shown in the preview is exactly the one that gets
   deployed. Instant deploy accepts static HTML, CSS and JavaScript only; framework
   projects are rejected with a prompt to sign in.
+- **Deploy new** (`/deploy`) — for signed-in GitHub users. Search and pick one of your
+  GitHub repositories (public or private) or upload a ZIP, optionally add environment
+  variables at creation, then publish at a chosen subdomain.
 - **Launchpad** (`/launchpad`) — for signed-in GitHub users. Full framework builds,
   a project list with traffic stats, environment variables, custom domains,
   deployment history and rollback.

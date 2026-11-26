@@ -45,8 +45,15 @@ export const api = {
 
   listProjects: () => request('/api/projects'),
   getProject: (id) => request(`/api/projects/${encodeURIComponent(id)}`),
-  createProject: ({ repoUrl, subdomain }) =>
-    request('/api/projects', { method: 'POST', body: { repo_url: repoUrl, subdomain } }),
+  createProject: ({ repoUrl, subdomain, envVars }) =>
+    request('/api/projects', {
+      method: 'POST',
+      body: {
+        repo_url: repoUrl,
+        subdomain,
+        ...(envVars && Object.keys(envVars).length ? { env_vars: envVars } : {}),
+      },
+    }),
   uploadZip: (subdomain, file) => {
     const form = new FormData();
     form.append('subdomain', subdomain);
@@ -73,6 +80,8 @@ export const api = {
     }),
 
   checkSubdomain: (name) => request(`/api/check-subdomain?name=${encodeURIComponent(name)}`),
+  listGitHubRepos: ({ page = 1, perPage = 100, signal } = {}) =>
+    request(`/api/github/repos?page=${page}&per_page=${perPage}`, { signal }),
 
   // Instant deploy: publik, tanpa sesi, static HTML/CSS/JS saja.
   instantAddress: () => request('/api/instant/address', { method: 'POST' }),

@@ -3,6 +3,7 @@
   import { sanitize, validateName } from './subdomain.js';
   import { buildTreeRows, normalizeTreePaths } from './fileTree.js';
   import { listZipPaths } from './zipTree.js';
+  import { session } from './session.svelte.js';
 
   let { preset = '', onCreated } = $props();
 
@@ -20,17 +21,41 @@
   let tree = $state({ paths: [], loading: false, error: '', truncated: false });
   let treeToken = 0;
 
+  // GitHub repository picker (only for users signed in with GitHub).
+  let repoSearch = $state('');
+  let repoList = $state([]);
+  let repoLoading = $state(false);
+  let repoLoadingMore = $state(false);
+  let repoError = $state('');
+  let repoPage = 1;
+  let repoHasMore = $state(false);
+  let loadedFor = '';
+
+  // Optional build-time environment variables.
+  let envOpen = $state(false);
+  let envRows = $state([]);
+
   const emptyTree = { paths: [], loading: false, error: '', truncated: false };
+  const isValidEnvKey = (key) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(key) && key.length <= 256;
 
   let nameCheck = $derived(validateName(name));
   let sourceValid = $derived(tab === 'zip' ? !!file : /github\.com/i.test(repoUrl.trim()));
   let treeRows = $derived(buildTreeRows(tree.paths));
   let fileCount = $derived(normalizeTreePaths(tree.paths).length);
+  let filteredRepos = $derived(
+    repoList.filter((repo) =>
+      `${repo.full_name} ${repo.name}`.toLowerCase().includes(repoSearch.trim().toLowerCase()),
+    ),
+  );
+  let envCount = $derived(envRows.filter((row) => row.key.trim()).length);
+  let envValid = $derived(
+    envRows.every((row) => !row.key.trim() || isValidEnvKey(row.key.trim())),
+  );
   let canSubmit = $derived(
     !submitting &&
       nameCheck.ok &&
       check.available !== false &&
-      (tab === 'zip' ? !!file : !!repoUrl.trim()),
+      (tab === 'zip' ? !!file : !!repoUrl.trim() && envValid),
   );
 
   // Isi nama dari "?claim=" di URL hanya sekali (bukan tiap render).
@@ -112,6 +137,64 @@
     return () => clearTimeout(timer);
   });
 
+  // Load the signed-in user's repositories once when the repo tab is active.
+  $effect(() => {
+    const user = session.user?.username ?? '';
+    if (tab !== 'repo' || !user || loadedFor === user) return;
+    loadedFor = user;
+    loadRepos();
+  });
+
+  async function loadRepos({ append = false } = {}) {
+    if (repoLoading || repoLoadingMore || (append && !repoHasMore)) return;
+    if (append) repoLoadingMore = true;
+    else repoLoading = true;
+    repoError = '';
+
+    const nextPage = append ? repoPage + 1 : 1;
+    try {
+      const data = await api.listGitHubRepos({ page: nextPage, perPage: 100 });
+      const incoming = Array.isArray(data?.repos) ? data.repos : [];
+      if (append) {
+        const seen = new Set(repoList.map((repo) => repo.full_name));
+        repoList = [...repoList, ...incoming.filter((repo) => !seen.has(repo.full_name))];
+      } else {
+        repoList = incoming;
+      }
+      repoPage = data?.page ?? nextPage;
+      repoHasMore = !!data?.has_more && incoming.length > 0;
+    } catch (err) {
+      repoError = err?.message ?? 'Could not load your repositories';
+    } finally {
+      repoLoading = false;
+      repoLoadingMore = false;
+    }
+  }
+
+  function repoSelected(repo) {
+    const value = repoUrl.trim().toLowerCase().replace(/\.git$/, '');
+    const main = `https://github.com/${repo.full_name}`.toLowerCase();
+    return value === main || value === (repo.html_url ?? '').toLowerCase();
+  }
+
+  function chooseRepo(repo) {
+    repoUrl = repo.html_url || `https://github.com/${repo.full_name}`;
+    error = '';
+    done = '';
+    if (!name) {
+      const suggested = sanitize(repo.name).replace(/^-+|-+$/g, '');
+      if (suggested) name = suggested;
+    }
+  }
+
+  function addEnv() {
+    envRows = [...envRows, { key: '', value: '' }];
+  }
+
+  function removeEnv(index) {
+    envRows = envRows.filter((_, i) => i !== index);
+  }
+
   function indent(depth) {
     return `${depth * 18 + 12}px`;
   }
@@ -159,20 +242,32 @@
       return;
     }
     if (tab === 'repo' && !repoUrl.trim()) {
-      error = 'Paste the GitHub repository URL.';
+      error = 'Paste the GitHub repository URL or pick one below.';
       return;
     }
+    if (tab === 'repo' && !envValid) {
+      error =
+        'Environment names use letters, numbers and underscores, starting with a letter or underscore.';
+      return;
+    }
+
+    const envVars =
+      tab === 'repo'
+        ? Object.fromEntries(envRows.filter((row) => row.key.trim()).map((row) => [row.key.trim(), row.value]))
+        : undefined;
 
     submitting = true;
     try {
       const data =
         tab === 'zip'
           ? await api.uploadZip(name, file)
-          : await api.createProject({ repoUrl: repoUrl.trim(), subdomain: name });
+          : await api.createProject({ repoUrl: repoUrl.trim(), subdomain: name, envVars });
 
       done = `${data?.project?.subdomain ?? name}.only4.fun is queued. Build starts in a moment.`;
       repoUrl = '';
       file = null;
+      envRows = [];
+      envOpen = false;
       if (fileInput) fileInput.value = '';
       onCreated?.(data?.project);
     } catch (err) {
@@ -222,7 +317,79 @@
               autocomplete="off"
               spellcheck="false"
             />
-            <p class="hint">Public GitHub repositories. npm, pnpm and yarn builds are supported.</p>
+            <p class="hint">Paste a URL or pick one of your repositories below. Public and private GitHub repos are supported.</p>
+
+            {#if session.user}
+              <div class="repo-picker" aria-label="Your GitHub repositories">
+                <div class="picker-head">
+                  <span>Your repositories</span>
+                  <span class="picker-count">
+                    {repoLoading ? 'Loading…' : `${repoList.length} available`}
+                  </span>
+                </div>
+
+                <div class="picker-search">
+                  <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="m20 20-3.5-3.5" />
+                  </svg>
+                  <input
+                    type="search"
+                    bind:value={repoSearch}
+                    placeholder="Search repositories…"
+                    aria-label="Search your repositories"
+                    autocomplete="off"
+                    spellcheck="false"
+                  />
+                </div>
+
+                {#if repoError}
+                  <p class="picker-error" role="status">
+                    {repoError}
+                    <button type="button" class="quiet" onclick={() => loadRepos()}>Retry</button>
+                  </p>
+                {:else if repoLoading}
+                  <p class="picker-empty">Loading your repositories…</p>
+                {:else if repoList.length === 0}
+                  <p class="picker-empty">No repositories found on this GitHub account.</p>
+                {:else if filteredRepos.length === 0}
+                  <p class="picker-empty">
+                    No match in loaded repositories.
+                    {#if repoHasMore}
+                      <button type="button" class="quiet" onclick={() => loadRepos({ append: true })} disabled={repoLoadingMore}>
+                        {repoLoadingMore ? 'Loading…' : 'Load more'}
+                      </button>
+                    {/if}
+                  </p>
+                {:else}
+                  <ul class="repo-results">
+                    {#each filteredRepos as repo (repo.full_name)}
+                      <li>
+                        <button
+                          type="button"
+                          class="quiet"
+                          class:selected={repoSelected(repo)}
+                          onclick={() => chooseRepo(repo)}
+                          aria-pressed={repoSelected(repo)}
+                        >
+                          <svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true">
+                            <path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.69c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.34 1.09 2.91.83.09-.65.35-1.09.64-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.6 9.6 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.68-4.57 4.93.36.31.68.92.68 1.85v2.74c0 .27.18.58.69.48A10 10 0 0 0 12 2z" />
+                          </svg>
+                          <span class="repo-name">{repo.name}</span>
+                          <span class="repo-full">{repo.full_name}</span>
+                          {#if repo.private}<span class="private-tag">Private</span>{/if}
+                        </button>
+                      </li>
+                    {/each}
+                  </ul>
+                  {#if repoHasMore}
+                    <button type="button" class="quiet load-more" onclick={() => loadRepos({ append: true })} disabled={repoLoadingMore}>
+                      {repoLoadingMore ? 'Loading more…' : 'Load more repositories'}
+                    </button>
+                  {/if}
+                {/if}
+              </div>
+            {/if}
           {:else}
             <input
               id="deploy-repo"
@@ -281,6 +448,55 @@
             {name}.only4.fun looks good.
           {/if}
         </p>
+
+        {#if tab === 'repo'}
+          <div class="env-block">
+            <button
+              type="button"
+              class="quiet env-toggle"
+              aria-expanded={envOpen}
+              onclick={() => (envOpen = !envOpen)}
+            >
+              <span class="env-title">Environment variables <span class="env-optional">optional</span></span>
+              <span class="env-summary">
+                {envCount ? `${envCount} added` : 'Skip for now'}
+              </span>
+              <svg class="chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+
+            {#if envOpen}
+              <div class="env-body">
+                <p class="hint">Only needed when your build reads keys such as API_URL. You can add these later in project settings.</p>
+                {#each envRows as row, i}
+                  <div class="env-row">
+                    <input
+                      bind:value={row.key}
+                      placeholder="API_KEY"
+                      aria-label="Variable name"
+                      autocomplete="off"
+                      spellcheck="false"
+                      class:invalid={!!row.key.trim() && !isValidEnvKey(row.key.trim())}
+                    />
+                    <input
+                      bind:value={row.value}
+                      placeholder="value"
+                      aria-label="Variable value"
+                      autocomplete="off"
+                      spellcheck="false"
+                    />
+                    <button type="button" class="quiet env-remove" aria-label="Remove variable" onclick={() => removeEnv(i)}>×</button>
+                  </div>
+                {/each}
+                {#if !envValid}
+                  <p class="picker-error">Use letters, numbers and underscores, starting with a letter or underscore.</p>
+                {/if}
+                <button type="button" class="quiet add-env" onclick={addEnv}>+ Add variable</button>
+              </div>
+            {/if}
+          </div>
+        {/if}
 
         {#if error}
           <p class="error" role="alert">{error}</p>
@@ -443,6 +659,13 @@
     color: var(--ink);
   }
 
+  /* Keep secondary controls flat; the global blue hover is for primary actions. */
+  :global(body .workspace .create button.quiet:hover:not(:disabled)) {
+    background: var(--soft) !important;
+    border-color: var(--line) !important;
+    color: var(--ink) !important;
+  }
+
   .note {
     color: var(--muted);
     font: 500 13px/1 'DM Mono', monospace;
@@ -505,6 +728,249 @@
     font-size: 15px;
     font-weight: 400;
     line-height: 1.5;
+    color: var(--muted);
+  }
+
+  .repo-picker {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid var(--line);
+  }
+
+  .picker-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font: 600 16px/1 'Gabarito', sans-serif;
+  }
+
+  .picker-count {
+    font: 500 13px/1 'DM Mono', monospace;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .picker-search {
+    position: relative;
+    margin-top: 12px;
+  }
+
+  .picker-search svg {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+  }
+
+  .picker-search input {
+    display: block;
+    width: 100%;
+    border: 1.5px solid var(--line);
+    border-radius: 14px;
+    background: var(--bg);
+    color: var(--ink);
+    font: 500 17px/1.3 'Gabarito', sans-serif;
+    padding: 13px 16px 13px 44px;
+  }
+
+  .picker-search input:focus {
+    border-color: var(--blue);
+    outline: none;
+  }
+
+  .repo-results {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+    max-height: 190px;
+    overflow: auto;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+  }
+
+  .repo-results li + li {
+    border-top: 1px solid var(--line);
+  }
+
+  .repo-results button {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-width: 0;
+    border: 0 !important;
+    border-radius: 0;
+    background: transparent;
+    padding: 11px 14px;
+    text-align: left;
+    font: 500 16px/1.3 'Gabarito', sans-serif;
+    color: var(--ink);
+  }
+
+  .repo-results button svg {
+    flex: none;
+    color: var(--muted);
+  }
+
+  .repo-results button.selected {
+    background: var(--soft);
+  }
+
+  .repo-results button.selected .repo-name {
+    color: var(--blue);
+  }
+
+  .repo-name {
+    flex: none;
+    font-weight: 700;
+  }
+
+  .repo-full {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--muted);
+    font-size: 15px;
+  }
+
+  .private-tag,
+  .env-optional {
+    flex: none;
+    padding: 3px 8px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font: 500 12px/1 'DM Mono', monospace;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .private-tag {
+    margin-left: auto;
+  }
+
+  .picker-empty,
+  .picker-error {
+    margin: 14px 0 0;
+    font: 500 15px/1.5 'Gabarito', sans-serif;
+    color: var(--muted);
+  }
+
+  .picker-error {
+    color: var(--red);
+  }
+
+  .picker-empty button,
+  .picker-error button {
+    border: 0 !important;
+    background: transparent;
+    padding: 0 4px;
+    color: var(--blue);
+    font: 600 15px/1 'Gabarito', sans-serif;
+    text-decoration: underline;
+  }
+
+  .load-more {
+    margin-top: 12px;
+    border: 1px solid var(--line) !important;
+    background: transparent;
+    border-radius: 999px;
+    padding: 9px 16px;
+    font: 600 15px/1 'Gabarito', sans-serif;
+    color: var(--muted);
+  }
+
+  .env-block {
+    margin-top: 24px;
+    padding-top: 22px;
+    border-top: 1px solid var(--line);
+  }
+
+  .env-toggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border: 0 !important;
+    background: transparent;
+    padding: 0;
+    text-align: left;
+    font: 600 17px/1 'Gabarito', sans-serif;
+    color: var(--ink);
+  }
+
+  .env-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .env-summary {
+    margin-left: auto;
+    font: 500 15px/1 'Gabarito', sans-serif;
+    color: var(--muted);
+  }
+
+  .chevron {
+    flex: none;
+    color: var(--muted);
+    transition: transform 0.2s ease;
+  }
+
+  .env-toggle[aria-expanded='true'] .chevron {
+    transform: rotate(180deg);
+  }
+
+  .env-body {
+    margin-top: 12px;
+  }
+
+  .env-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .env-row input {
+    min-width: 0;
+    border: 1.5px solid var(--line);
+    border-radius: 12px;
+    background: var(--bg);
+    color: var(--ink);
+    font: 500 15px/1 'DM Mono', monospace;
+    padding: 12px 13px;
+  }
+
+  .env-row input:focus {
+    border-color: var(--blue);
+    outline: none;
+  }
+
+  .env-row input.invalid {
+    border-color: var(--red);
+  }
+
+  .env-remove {
+    border: 0 !important;
+    background: transparent;
+    padding: 0 4px;
+    font: 500 22px/1 'Gabarito', sans-serif;
+    color: var(--muted);
+  }
+
+  .add-env {
+    margin-top: 12px;
+    border: 1px solid var(--line) !important;
+    background: transparent;
+    border-radius: 999px;
+    padding: 9px 16px;
+    font: 600 15px/1 'Gabarito', sans-serif;
     color: var(--muted);
   }
 
@@ -745,6 +1211,16 @@
     .submit {
       width: 100%;
       justify-content: center;
+    }
+
+    .env-row {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 24px;
+      gap: 6px;
+    }
+
+    .env-row input {
+      font-size: 14px;
+      padding: 11px 10px;
     }
   }
 </style>
