@@ -9,6 +9,8 @@
 
   let tab = $state('repo');
   let name = $state('');
+  // Nama yang diisi otomatis dari repo picker, supaya bisa diganti saat pindah repo.
+  let autoName = $state('');
   let repoUrl = $state('');
   let file = $state(null);
   let fileInput = $state(null);
@@ -181,9 +183,13 @@
     repoUrl = repo.html_url || `https://github.com/${repo.full_name}`;
     error = '';
     done = '';
-    if (!name) {
+
+    // Ikuti pilihan repo selama nama masih kosong atau masih hasil auto-fill.
+    // Kalau user sudah mengetik sendiri, nama manualnya tidak ditimpa.
+    if (!name || name === autoName) {
       const suggested = sanitize(repo.name).replace(/^-+|-+$/g, '');
-      if (suggested) name = suggested;
+      name = suggested;
+      autoName = suggested;
     }
   }
 
@@ -201,6 +207,7 @@
 
   function onName(event) {
     name = sanitize(event.currentTarget.value);
+    autoName = '';
     done = '';
   }
 
@@ -213,6 +220,11 @@
     tab = next;
     error = '';
     done = '';
+    if (next === 'zip') {
+      // ZIP belum punya nama sampai di-upload atau diketik user.
+      name = '';
+      autoName = '';
+    }
   }
 
   async function submit(event) {
