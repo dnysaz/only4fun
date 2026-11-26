@@ -475,8 +475,8 @@
   .hero,
   .done {
     /* Menjaga padding horizontal dari .wrap supaya sejajar dengan nav/footer.
-       Bagian bawah dirapikan ke footer supaya area biru tidak terputus. */
-    padding-block: 88px 0;
+       Beri ruang napas sebelum footer agar section terakhir tidak mepet. */
+    padding-block: 88px clamp(56px, 7vw, 96px);
   }
 
   .eyebrow {
@@ -996,11 +996,11 @@
 
   @media (max-width: 760px) {
     .hero {
-      padding-block: 48px 0;
+      padding-block: 48px 56px;
     }
 
     .done {
-      padding-block: 48px 64px;
+      padding-block: 48px 72px;
     }
 
     .panel {
