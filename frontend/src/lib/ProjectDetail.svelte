@@ -428,7 +428,22 @@
         <div><span>Repository</span><b class="mono">{repo}</b></div>
         <div><span>Created</span><b>{fmt(project.created_at)}</b></div>
         <div><span>Last deploy</span><b>{fmt(project.updated_at)}</b></div>
-        <div><span>Custom domain</span><b class="mono">{project.custom_domain || 'not set'}</b></div>
+        <div>
+          <span>Custom domain</span>
+          {#if project.custom_domain}
+            <a
+              class="overview-link mono"
+              href={`https://${project.custom_domain}`}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={`Open ${project.custom_domain} in a new tab`}
+            >
+              {project.custom_domain} ↗
+            </a>
+          {:else}
+            <b class="mono">not set</b>
+          {/if}
+        </div>
       </section>
 
       <div class="columns">
@@ -821,11 +836,23 @@
     text-transform: uppercase;
   }
 
-  .overview b {
+  .overview b,
+  .overview-link {
     font-size: 16px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .overview-link {
+    color: var(--ink);
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 0.18em;
+  }
+
+  .overview-link:hover {
+    color: var(--blue);
   }
 
   .mono {
@@ -868,6 +895,10 @@
     margin: 0;
     color: var(--muted);
     font-size: 15px;
+  }
+
+  .domain .panel-head p {
+    font-size: 16px;
   }
 
   .totals {
@@ -946,7 +977,7 @@
     margin: 18px 0 0;
     color: var(--muted);
     font-family: inherit;
-    font-size: 15px;
+    font-size: 16px;
     line-height: 1.5;
   }
 
@@ -970,7 +1001,7 @@
     gap: 10px;
     align-items: center;
     padding: 8px 12px;
-    font-size: 15px;
+    font-size: 16px;
     line-height: 1.5;
   }
 
@@ -1035,7 +1066,7 @@
 
   .domain-status b {
     display: block;
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 700;
   }
 
@@ -1043,7 +1074,7 @@
     display: block;
     margin-top: 3px;
     color: var(--muted);
-    font-size: 15px;
+    font-size: 16px;
     line-height: 1.5;
   }
 

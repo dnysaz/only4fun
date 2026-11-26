@@ -60,6 +60,11 @@ func TestMapDomainStatus(t *testing.T) {
 			t.Errorf("mapDomainStatus(%+v) state = %q, want %q", tc.status, got, tc.want)
 		}
 	}
+
+	_, message := mapDomainStatus(&dns.CustomHostnameStatus{Status: "active", SSLStatus: "active"})
+	if message != "Domain is active and SSL is ready." {
+		t.Errorf("active message = %q, want %q", message, "Domain is active and SSL is ready.")
+	}
 }
 
 func TestUpdateCustomDomain(t *testing.T) {

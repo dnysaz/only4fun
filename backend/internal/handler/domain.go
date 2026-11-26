@@ -132,7 +132,7 @@ func (h *ProjectHandler) UpdateCustomDomain(c *gin.Context) {
 func mapDomainStatus(status *dns.CustomHostnameStatus) (string, string) {
 	switch {
 	case status.Status == "active" && status.SSLStatus == "active":
-		return "active", "Domain is active and the SSL certificate is issued."
+		return "active", "Domain is active and SSL is ready."
 	case status.Status == "active":
 		return "ssl_pending", "DNS is verified. The SSL certificate is being issued."
 	case status.Status == "pending":
