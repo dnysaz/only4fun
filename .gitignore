@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Local environment / secrets (keep templates)
+.env
+.env.*
+!.env.example
+
+# Local runtime data
+backend/data/*
+!backend/data/.gitkeep
+backend/only4fun-backend
+*.db
+*.db-wal
+*.db-shm
+
+# Logs
+*.log
+logs/
+
+# Editor and OS files
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Temporary helper files
+*_tmp.go
+.reset_*

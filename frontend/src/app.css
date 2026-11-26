@@ -1,0 +1,183 @@
+/* Global tokens + base styles for the Only4fun landing page. */
+
+:root {
+  --bg: #ffffff;
+  --soft: #f1f3f4;
+  --ink: #202124;
+  --muted: #5f6368;
+  --line: #dadce0;
+  --blue: #4285f4;
+  --red: #ea4335;
+  --yellow: #fbbc04;
+  --green: #34a853;
+  --term: #202124;
+  --term-ink: #e8eaed;
+  --on-yellow: #202124;
+  --nav-h: 92px;
+  --page-x: clamp(28px, 4vw, 72px);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #202124;
+    --soft: #2d2e31;
+    --ink: #e8eaed;
+    --muted: #9aa0a6;
+    --line: #3c4043;
+    --term: #171717;
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --bg: #202124;
+  --soft: #2d2e31;
+  --ink: #e8eaed;
+  --muted: #9aa0a6;
+  --line: #3c4043;
+  --term: #171717;
+  color-scheme: dark;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: calc(var(--nav-h) + env(safe-area-inset-top, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  /* Navbar is fixed, so reserve its height at the top of every page. */
+  padding-top: calc(var(--nav-h) + env(safe-area-inset-top, 0px));
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: 'Gabarito', system-ui, sans-serif;
+  font-size: 20px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: 3px;
+}
+
+/* Controls: blue hover with white text, red reserved for destructive actions. */
+body .workspace button:not(.btn) {
+  border: 1.5px solid var(--muted);
+}
+
+body .workspace .btn {
+  border: 1.5px solid var(--muted);
+}
+
+body button:not(.btn):not(.danger):not(.confirm):hover:not(:disabled) {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+
+body .btn:hover {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+
+body button.danger:hover:not(:disabled),
+body button.confirm:hover:not(:disabled) {
+  background: var(--red);
+  border-color: var(--red);
+  color: #fff;
+}
+
+body .workspace button:focus-visible,
+body .workspace a.btn:focus-visible,
+body .dialog button:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.wrap {
+  width: 100%;
+  padding: 0 var(--page-x);
+}
+
+.mono {
+  font-family: 'DM Mono', ui-monospace, monospace;
+}
+
+.btn {
+  display: inline-block;
+  background: var(--blue);
+  color: #fff;
+  padding: 15px 30px;
+  border-radius: 999px;
+  font: 600 19px/1 'Gabarito', sans-serif;
+  text-decoration: none;
+  border: 0;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.btn:hover {
+  background: #2f72e0;
+}
+
+/* Four-dot logo mark, shared by the nav and the footer. */
+.dots4 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  width: var(--dot-size, 26px);
+  height: var(--dot-size, 26px);
+}
+
+.dots4 i {
+  border-radius: 50%;
+}
+
+.dots4 i:nth-child(1) {
+  background: var(--blue);
+}
+.dots4 i:nth-child(2) {
+  background: var(--red);
+}
+.dots4 i:nth-child(3) {
+  background: var(--yellow);
+}
+.dots4 i:nth-child(4) {
+  background: var(--green);
+}
+
+@media (max-width: 900px) {
+  body {
+    font-size: 18px;
+  }
+}
+
+/* Layar kecil: inset lebih tipis supaya konten dapat ruang lebih luas. */
+@media (max-width: 700px) {
+  :root {
+    --page-x: 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .btn {
+    transition: none;
+  }
+}
