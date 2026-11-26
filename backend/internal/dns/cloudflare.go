@@ -180,6 +180,17 @@ func (c *Client) do(ctx context.Context, method, path string, body any, out any)
 type cfCustomHostname struct {
 	ID       string `json:"id"`
 	Hostname string `json:"hostname"`
+	Status   string `json:"status"`
+	SSL      struct {
+		Status string `json:"status"`
+	} `json:"ssl"`
+}
+
+// CustomHostnameStatus ringkas untuk dipakai UI (hostname activation + SSL).
+type CustomHostnameStatus struct {
+	Hostname  string `json:"hostname"`
+	Status    string `json:"status"`
+	SSLStatus string `json:"ssl_status"`
 }
 
 // EnsureCustomHostname mendaftarkan domain milik user sebagai custom hostname
@@ -220,6 +231,23 @@ func (c *Client) DeleteCustomHostname(ctx context.Context, hostname string) erro
 		return nil
 	}
 	return c.do(ctx, http.MethodDelete, "/zones/"+c.zoneID+"/custom_hostnames/"+existing.ID, nil, nil)
+}
+
+// GetCustomHostnameStatus mengembalikan status hostname dan sertifikatnya.
+// Mengembalikan (nil, nil) bila hostname belum terdaftar atau integrasi mati.
+func (c *Client) GetCustomHostnameStatus(ctx context.Context, hostname string) (*CustomHostnameStatus, error) {
+	if !c.Enabled() || hostname == "" {
+		return nil, nil
+	}
+	found, err := c.findCustomHostname(ctx, hostname)
+	if err != nil || found == nil {
+		return nil, err
+	}
+	return &CustomHostnameStatus{
+		Hostname:  found.Hostname,
+		Status:    found.Status,
+		SSLStatus: found.SSL.Status,
+	}, nil
 }
 
 func (c *Client) findCustomHostname(ctx context.Context, hostname string) (*cfCustomHostname, error) {

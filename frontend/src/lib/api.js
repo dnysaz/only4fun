@@ -78,6 +78,7 @@ export const api = {
       method: 'PUT',
       body: { domain },
     }),
+  domainStatus: (id) => request(`/api/projects/${encodeURIComponent(id)}/domain/status`),
 
   checkSubdomain: (name) => request(`/api/check-subdomain?name=${encodeURIComponent(name)}`),
   listGitHubRepos: ({ page = 1, perPage = 100, signal } = {}) =>

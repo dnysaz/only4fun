@@ -21,6 +21,23 @@
     building: 'yellow',
     pending: 'yellow',
   };
+  const DOMAIN_STATE_LABEL = {
+    active: 'Active',
+    ssl_pending: 'Issuing certificate',
+    dns_pending: 'Waiting for DNS',
+    pending: 'Verifying',
+    none: 'No domain',
+    ssl_unavailable: 'SSL unavailable',
+    unknown: 'Status unknown',
+  };
+  const DOMAIN_STATE_TONE = {
+    active: 'green',
+    ssl_pending: 'yellow',
+    dns_pending: 'yellow',
+    pending: 'yellow',
+    ssl_unavailable: 'red',
+    unknown: 'red',
+  };
   const CHART_H = 180;
   const CHART_PAD = 14;
   let chartWidth = $state(600);
@@ -50,6 +67,9 @@
   let error = $state('');
   let notice = $state('');
   let domainWarning = $state('');
+  let domainState = $state('none');
+  let domainStatusMessage = $state('');
+  let domainStatusTimer = null;
   let busy = $state(false);
 
   let envRows = $state([]);
@@ -182,6 +202,7 @@
       }
       envRows = rowsFromKeys(project?.env_keys ?? []);
       domain = project?.custom_domain ?? '';
+      loadDomainStatus();
     } catch (err) {
       error = err?.message ?? 'Could not load the project';
     } finally {
@@ -211,6 +232,7 @@
 
   onDestroy(() => {
     if (pollTimer) window.clearInterval(pollTimer);
+    if (domainStateTimer) window.clearInterval(domainStateTimer);
   });
 
   async function redeploy() {
@@ -300,12 +322,30 @@
       notice = project.custom_domain ? 'Custom domain saved.' : 'Custom domain removed.';
       // Cloudflare custom hostnames are best effort; surface when SSL is not automatic.
       domainWarning = data?.warning ?? '';
+      loadDomainStatus();
     } catch (err) {
       error = err?.message ?? 'Could not save the custom domain';
     } finally {
       savingDomain = false;
     }
   }
+
+  async function loadDomainStatus() {
+    if (!id) return;
+    try {
+      const data = await api.domainStatus(id);
+      domainState = data?.state ?? 'unknown';
+      domainStatusMessage = data?.message ?? '';
+    } catch {
+      domainState = 'unknown';
+      domainStatusMessage = 'Could not check the domain status right now.';
+    }
+  }
+
+  $effect(() => {
+    if (!project?.custom_domain || domainState === 'active' || domainStateTimer) return;
+    domainStateTimer = window.setInterval(loadDomainStatus, 8000);
+  });
 
   async function copyLog(event, deploymentId, log) {
     event.preventDefault();
@@ -451,6 +491,15 @@
               {savingDomain ? 'Saving…' : 'Save domain'}
             </button>
           </div>
+          {#if project?.custom_domain}
+            <div class="domain-status {DOMAIN_STATE_TONE[domainState] ?? 'red'}">
+              <span class="status-dot" aria-hidden="true"></span>
+              <div>
+                <b>{DOMAIN_STATE_LABEL[domainState] ?? 'Checking…'}</b>
+                <span>{domainStatusMessage || 'Checking the domain status…'}</span>
+              </div>
+            </div>
+          {/if}
           <p class="hint">
             Add this record at your DNS provider, then save the full hostname above (for example
             <code>www.example.com</code>):
@@ -932,6 +981,63 @@
   .dns-help code {
     font-family: 'DM Mono', monospace;
     overflow-wrap: anywhere;
+  }
+
+  .domain-status {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 14px;
+    padding: 10px 12px;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--muted);
+    border-radius: 10px;
+  }
+
+  .domain-status.green {
+    border-left-color: var(--green);
+  }
+
+  .domain-status.yellow {
+    border-left-color: var(--yellow);
+  }
+
+  .domain-status.red {
+    border-left-color: var(--red);
+  }
+
+  .status-dot {
+    width: 8px;
+    height: 8px;
+    margin-top: 5px;
+    border-radius: 50%;
+    background: var(--muted);
+    flex: 0 0 auto;
+  }
+
+  .green .status-dot {
+    background: var(--green);
+  }
+
+  .yellow .status-dot {
+    background: var(--yellow);
+  }
+
+  .red .status-dot {
+    background: var(--red);
+  }
+
+  .domain-status b {
+    display: block;
+    font-size: 13px;
+  }
+
+  .domain-status div span {
+    display: block;
+    margin-top: 3px;
+    color: var(--muted);
+    font-size: 12px;
+    line-height: 1.4;
   }
 
   .domain-row {

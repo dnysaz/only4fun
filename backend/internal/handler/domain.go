@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strings"
 
+	"only4.fun/backend/internal/dns"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -124,4 +126,63 @@ func (h *ProjectHandler) UpdateCustomDomain(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"custom_domain": domain, "warning": warning})
+}
+
+// mapDomainStatus menerjemahkan status Cloudflare ke label UI yang stabil.
+func mapDomainStatus(status *dns.CustomHostnameStatus) (string, string) {
+	switch {
+	case status.Status == "active" && status.SSLStatus == "active":
+		return "active", "Domain is active and the SSL certificate is issued."
+	case status.Status == "active":
+		return "ssl_pending", "DNS is verified. The SSL certificate is being issued."
+	case status.Status == "pending":
+		return "dns_pending", "Waiting for DNS. Point a CNAME record to the target shown below."
+	default:
+		return "pending", "Waiting for DNS verification."
+	}
+}
+
+// GetDomainStatus melaporkan status verifikasi domain kustom supaya frontend
+// bisa menampilkan indikator seperti "Verifying" / "Active".
+func (h *ProjectHandler) GetDomainStatus(c *gin.Context) {
+	project, ok := h.ownedProject(c)
+	if !ok {
+		return
+	}
+
+	hostname := project.CustomDomain
+	if hostname == "" {
+		c.JSON(http.StatusOK, gin.H{"state": "none", "message": "No custom domain set."})
+		return
+	}
+	if h.dns == nil || !h.dns.Enabled() {
+		c.JSON(http.StatusOK, gin.H{
+			"state": "ssl_unavailable", "hostname": hostname,
+			"message": "Automatic SSL is not configured on this server.",
+		})
+		return
+	}
+
+	status, err := h.dns.GetCustomHostnameStatus(c.Request.Context(), hostname)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"state": "unknown", "hostname": hostname,
+			"message": "Could not check the domain status: " + err.Error(),
+		})
+		return
+	}
+	if status == nil {
+		c.JSON(http.StatusOK, gin.H{
+			"state": "pending", "hostname": hostname,
+			"message": "Domain saved. Waiting for Cloudflare to register it.",
+		})
+		return
+	}
+
+	state, message := mapDomainStatus(status)
+
+	c.JSON(http.StatusOK, gin.H{
+		"state": state, "hostname": hostname, "message": message,
+		"hostname_status": status.Status, "ssl_status": status.SSLStatus,
+	})
 }
