@@ -716,6 +716,12 @@
     cursor: pointer;
   }
 
+  .accept:hover:not(:disabled) {
+    background: var(--soft) !important;
+    border-color: var(--blue) !important;
+    color: var(--ink) !important;
+  }
+
   .accept:disabled {
     opacity: 0.5;
     cursor: not-allowed;

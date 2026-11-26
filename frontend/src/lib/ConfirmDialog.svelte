@@ -137,8 +137,16 @@
     cursor: pointer;
   }
 
+  /* Override the global blue hover used for primary buttons in the app shell. */
   button:hover:not(:disabled) {
-    border-color: var(--ink);
+    background: transparent !important;
+    border-color: var(--ink) !important;
+    color: var(--ink) !important;
+  }
+
+  .scrim:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--ink) 52%, transparent) !important;
+    border-color: transparent !important;
   }
 
   .confirm {
@@ -148,7 +156,9 @@
   }
 
   .confirm:hover:not(:disabled) {
-    border-color: var(--ink);
+    background: var(--red) !important;
+    border-color: var(--ink) !important;
+    color: #fff !important;
   }
 
   button:disabled {

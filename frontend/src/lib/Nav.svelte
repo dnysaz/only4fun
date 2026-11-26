@@ -203,20 +203,24 @@
     color: #fff;
     padding: 12px 24px;
     font-size: 17px;
+    white-space: nowrap;
   }
 
   nav button.signout {
     background: transparent;
-    border: 1px solid var(--line);
+    border: 1.5px solid var(--muted);
     border-radius: 999px;
-    padding: 11px 20px;
-    font: 600 15px/1 'Gabarito', sans-serif;
+    padding: 12px 24px;
+    font: 600 17px/1 'Gabarito', sans-serif;
     color: var(--ink);
+    white-space: nowrap;
     cursor: pointer;
   }
 
   nav button.signout:hover {
-    border-color: var(--ink);
+    background: transparent !important;
+    border-color: var(--ink) !important;
+    color: var(--ink) !important;
   }
 
   @media (max-width: 900px) {
@@ -241,8 +245,8 @@
     }
 
     nav button.signout {
-      padding: 9px 14px;
-      font-size: 14px;
+      padding: 10px 18px;
+      font: 600 15px/1 'Gabarito', sans-serif;
     }
   }
 </style>

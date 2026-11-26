@@ -37,6 +37,9 @@
   let envOpen = $state(false);
   let envRows = $state([]);
 
+  // Terms checklist, same pattern as the instant launch page.
+  let accepted = $state(false);
+
   const emptyTree = { paths: [], loading: false, error: '', truncated: false };
   const isValidEnvKey = (key) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(key) && key.length <= 256;
 
@@ -55,6 +58,7 @@
   );
   let canSubmit = $derived(
     !submitting &&
+      accepted &&
       nameCheck.ok &&
       check.available !== false &&
       (tab === 'zip' ? !!file : !!repoUrl.trim() && envValid),
@@ -262,6 +266,10 @@
         'Environment names use letters, numbers and underscores, starting with a letter or underscore.';
       return;
     }
+    if (!accepted) {
+      error = 'Accept the terms and conditions to start the deploy.';
+      return;
+    }
 
     const envVars =
       tab === 'repo'
@@ -280,6 +288,7 @@
       file = null;
       envRows = [];
       envOpen = false;
+      accepted = false;
       if (fileInput) fileInput.value = '';
       onCreated?.(data?.project);
     } catch (err) {
@@ -509,6 +518,28 @@
             {/if}
           </div>
         {/if}
+
+        <div class="terms" class:accepted>
+          <div class="terms-actions">
+            <button
+              type="button"
+              class="accept"
+              aria-pressed={accepted}
+              onclick={() => {
+                accepted = !accepted;
+                error = '';
+              }}
+            >
+              <span class="box" aria-hidden="true">{accepted ? '✓' : ''}</span>
+              {accepted ? 'Terms accepted' : 'Accept terms and conditions'}
+            </button>
+            <a class="terms-link" href="/terms">Terms And Conditions</a>
+          </div>
+          <p>
+            I understand this project will be publicly accessible and build scripts from my repository
+            will run on the server.
+          </p>
+        </div>
 
         {#if error}
           <p class="error" role="alert">{error}</p>
@@ -907,9 +938,11 @@
     display: flex;
     align-items: center;
     gap: 10px;
+    min-height: 58px;
     border: 0 !important;
+    border-radius: 14px;
     background: transparent;
-    padding: 0;
+    padding: 14px 16px;
     text-align: left;
     font: 600 17px/1 'Gabarito', sans-serif;
     color: var(--ink);
@@ -983,6 +1016,74 @@
     border-radius: 999px;
     padding: 9px 16px;
     font: 600 15px/1 'Gabarito', sans-serif;
+    color: var(--muted);
+  }
+
+  .terms {
+    margin-top: 24px;
+    padding-top: 22px;
+    border-top: 1px solid var(--line);
+  }
+
+  .terms-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 18px;
+  }
+
+  .accept {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    border: 1.5px solid var(--muted);
+    border-radius: 999px;
+    background: var(--bg);
+    color: var(--ink);
+    font: 600 16px/1 'Gabarito', sans-serif;
+    padding: 12px 20px;
+    cursor: pointer;
+  }
+
+  .accept:hover:not(:disabled) {
+    background: var(--soft) !important;
+    border-color: var(--blue) !important;
+    color: var(--ink) !important;
+  }
+
+  .accept.accepted {
+    border-color: var(--blue);
+    background: var(--soft);
+  }
+
+  .box {
+    display: grid;
+    place-items: center;
+    width: 17px;
+    height: 17px;
+    border: 1.5px solid currentColor;
+    border-radius: 4px;
+    font-size: 13px;
+    line-height: 1;
+  }
+
+  .terms-link {
+    color: var(--ink);
+    font: 600 16px/1 'Gabarito', sans-serif;
+    text-decoration: underline;
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 0.2em;
+  }
+
+  .terms-link:hover {
+    color: var(--blue);
+  }
+
+  .terms p {
+    max-width: 38em;
+    margin: 12px 0 0;
+    font-size: 15px;
+    line-height: 1.5;
     color: var(--muted);
   }
 
