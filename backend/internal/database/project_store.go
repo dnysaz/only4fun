@@ -68,11 +68,11 @@ func decryptProjectEnv(project *Project) {
 func (s *ProjectStore) GetByID(projectID string) (*Project, error) {
 	var project Project
 	query := `SELECT * FROM projects WHERE id = ?`
-	err := s.db.Get(&project, query, projectID)
-	if err == nil {
-		decryptProjectEnv(&project)
+	if err := s.db.Get(&project, query, projectID); err != nil {
+		return nil, err
 	}
-	return &project, err
+	decryptProjectEnv(&project)
+	return &project, nil
 }
 
 func (s *ProjectStore) GetByUserID(userID string) ([]*Project, error) {
@@ -111,11 +111,11 @@ func ParseEnvKeys(envJSON string) []string {
 func (s *ProjectStore) GetBySubdomain(subdomain string) (*Project, error) {
 	var project Project
 	query := `SELECT * FROM projects WHERE subdomain = ?`
-	err := s.db.Get(&project, query, subdomain)
-	if err == nil {
-		decryptProjectEnv(&project)
+	if err := s.db.Get(&project, query, subdomain); err != nil {
+		return nil, err
 	}
-	return &project, err
+	decryptProjectEnv(&project)
+	return &project, nil
 }
 
 func (s *ProjectStore) Update(project *Project) error {
@@ -219,11 +219,11 @@ func (s *ProjectStore) SeedVisits(projectID string, counts []int64) error {
 func (s *ProjectStore) GetByCustomDomain(domain string) (*Project, error) {
 	var project Project
 	query := `SELECT * FROM projects WHERE lower(custom_domain) = lower(?)`
-	err := s.db.Get(&project, query, strings.TrimSpace(domain))
-	if err == nil {
-		decryptProjectEnv(&project)
+	if err := s.db.Get(&project, query, strings.TrimSpace(domain)); err != nil {
+		return nil, err
 	}
-	return &project, err
+	decryptProjectEnv(&project)
+	return &project, nil
 }
 
 // UpdateCustomDomain menyimpan (atau menghapus bila kosong) domain kustom.

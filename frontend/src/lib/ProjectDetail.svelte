@@ -48,6 +48,7 @@
   let loading = $state(true);
   let error = $state('');
   let notice = $state('');
+  let domainWarning = $state('');
   let busy = $state(false);
 
   let envRows = $state([]);
@@ -285,12 +286,15 @@
   async function saveDomain() {
     savingDomain = true;
     notice = '';
+    domainWarning = '';
     error = '';
     try {
       const data = await api.updateDomain(id, domain.trim());
       project = { ...project, custom_domain: data?.custom_domain ?? '' };
       domain = project.custom_domain;
       notice = project.custom_domain ? 'Custom domain saved.' : 'Custom domain removed.';
+      // Cloudflare custom hostnames are best effort; surface when SSL is not automatic.
+      domainWarning = data?.warning ?? '';
     } catch (err) {
       error = err?.message ?? 'Could not save the custom domain';
     } finally {
@@ -367,7 +371,11 @@
 
       {#if error}
         <p class="message bad">{error}</p>
-      {:else if notice}
+      {/if}
+      {#if domainWarning}
+        <p class="message warn">{domainWarning}</p>
+      {/if}
+      {#if !error && notice}
         <p class="message ok">{notice}</p>
       {/if}
 
@@ -714,6 +722,7 @@
   }
 
   .message.ok { color: var(--green); }
+  .message.warn { color: #9a6700; }
   .message.bad { color: var(--red); }
 
   .panel {

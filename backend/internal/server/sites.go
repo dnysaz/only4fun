@@ -47,10 +47,11 @@ func SiteHandler(cfg *config.Config, projectStore *database.ProjectStore, pm *Pr
 			return
 		}
 
-		host := strings.ToLower(c.Request.Host)
+		host := strings.ToLower(strings.TrimSpace(c.Request.Host))
 		if i := strings.LastIndex(host, ":"); i > -1 {
 			host = host[:i]
 		}
+		host = strings.TrimSuffix(host, ".")
 
 		// Subdomain platform (project.only4.fun) dicari lewat nama project,
 		// sedangkan host lain dicari sebagai domain kustom project.
@@ -63,11 +64,11 @@ func SiteHandler(cfg *config.Config, projectStore *database.ProjectStore, pm *Pr
 			// atau nama berisi "../" yang bisa keluar dari folder situs.
 			if !subdomainLabel.MatchString(subdomain) {
 				subdomain = ""
-			} else {
-				project, _ = projectStore.GetBySubdomain(subdomain)
+			} else if found, err := projectStore.GetBySubdomain(subdomain); err == nil {
+				project = found
 			}
-		} else {
-			project, _ = projectStore.GetByCustomDomain(host)
+		} else if found, err := projectStore.GetByCustomDomain(host); err == nil {
+			project = found
 		}
 
 		// Fallback: serve static site langsung dari disk jika project tidak ditemukan di DB
