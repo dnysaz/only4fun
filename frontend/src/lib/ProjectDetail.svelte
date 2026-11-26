@@ -945,12 +945,14 @@
   .hint {
     margin: 18px 0 0;
     color: var(--muted);
-    font-size: 14px;
+    font-family: inherit;
+    font-size: 15px;
     line-height: 1.5;
   }
 
   .hint code {
-    font-family: 'DM Mono', monospace;
+    font-family: inherit;
+    font-weight: 600;
     color: var(--ink);
   }
 
@@ -959,6 +961,7 @@
     border: 1px solid var(--line);
     border-radius: 12px;
     overflow: hidden;
+    font-family: inherit;
   }
 
   .dns-help > div {
@@ -967,7 +970,8 @@
     gap: 10px;
     align-items: center;
     padding: 8px 12px;
-    font-size: 13px;
+    font-size: 15px;
+    line-height: 1.5;
   }
 
   .dns-help > div + div {
@@ -979,7 +983,8 @@
   }
 
   .dns-help code {
-    font-family: 'DM Mono', monospace;
+    font-family: inherit;
+    font-weight: 600;
     overflow-wrap: anywhere;
   }
 
@@ -992,6 +997,7 @@
     border: 1px solid var(--line);
     border-left: 3px solid var(--muted);
     border-radius: 10px;
+    font-family: inherit;
   }
 
   .domain-status.green {
@@ -1029,15 +1035,16 @@
 
   .domain-status b {
     display: block;
-    font-size: 13px;
+    font-size: 15px;
+    font-weight: 700;
   }
 
   .domain-status div span {
     display: block;
     margin-top: 3px;
     color: var(--muted);
-    font-size: 12px;
-    line-height: 1.4;
+    font-size: 15px;
+    line-height: 1.5;
   }
 
   .domain-row {
