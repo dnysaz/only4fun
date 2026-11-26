@@ -232,7 +232,7 @@
 
   onDestroy(() => {
     if (pollTimer) window.clearInterval(pollTimer);
-    if (domainStateTimer) window.clearInterval(domainStateTimer);
+    if (domainStatusTimer) window.clearInterval(domainStatusTimer);
   });
 
   async function redeploy() {
@@ -343,8 +343,8 @@
   }
 
   $effect(() => {
-    if (!project?.custom_domain || domainState === 'active' || domainStateTimer) return;
-    domainStateTimer = window.setInterval(loadDomainStatus, 8000);
+    if (!project?.custom_domain || domainState === 'active' || domainStatusTimer) return;
+    domainStatusTimer = window.setInterval(loadDomainStatus, 8000);
   });
 
   async function copyLog(event, deploymentId, log) {
