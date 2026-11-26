@@ -54,6 +54,10 @@
 
   let envRows = $state([]);
   let domain = $state('');
+  let domainLabel = $derived.by(() => {
+    const parts = domain.trim().toLowerCase().replace(/\.$/, '').split('.').filter(Boolean);
+    return parts.length > 2 ? parts[0] : 'www';
+  });
   let savingEnv = $state(false);
   let savingDomain = $state(false);
   let showDelete = $state(false);
@@ -453,14 +457,15 @@
           </p>
           <div class="dns-help" aria-label="DNS record example">
             <div><span>Type</span><code>CNAME</code></div>
-            <div><span>Name</span><code>www</code></div>
+            <div><span>Name</span><code>{domainLabel}</code></div>
             <div><span>Target</span><code>{CNAME_TARGET}</code></div>
             <div><span>Proxy</span><code>DNS only</code></div>
           </div>
           <p class="hint">
-            Replace <code>www</code> with the subdomain you want to use. Keep the proxy off (grey
-            cloud) at your DNS provider. SSL can take a few minutes to activate. Leave the field
-            blank to remove the domain.
+            Name is the first part of the hostname you enter above — for
+            <code>wavetify.lagitest.xyz</code>, use <code>wavetify</code>. Use a subdomain; most DNS
+            providers do not allow CNAME at the root. Keep the proxy off (grey cloud). SSL can take
+            a few minutes to activate. Leave the field blank to remove the domain.
           </p>
         </section>
       </div>
