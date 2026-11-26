@@ -1,4 +1,5 @@
 <script>
+  import { onDestroy } from 'svelte';
   import Workspace from './Workspace.svelte';
   import ConfirmDialog from './ConfirmDialog.svelte';
   import { api } from './api.js';
@@ -57,6 +58,11 @@
   let deleting = $state(false);
   let copiedLog = $state('');
 
+  // Live build log: poll the deployment record while a build is running.
+  let livePolling = $state(false);
+  let liveLogId = $state('');
+  let pollTimer = null;
+
   let loadedFor = '';
 
   let meta = $derived(STATUS[project?.status] ?? { label: project?.status ?? '—', tone: 'blue' });
@@ -108,6 +114,54 @@
     return keys.map((key) => ({ key, value: '', remove: false, existing: true }));
   }
 
+  function isRunning(dep) {
+    return dep?.status === 'building' || dep?.status === 'pending';
+  }
+
+  function withOpenState(incoming) {
+    const previous = new Map(deployments.map((dep) => [dep.id, !!dep.open]));
+    return incoming.map((dep) => ({
+      ...dep,
+      open: previous.get(dep.id) || dep.id === liveLogId || isRunning(dep),
+    }));
+  }
+
+  async function refreshLive() {
+    if (!id) return;
+    try {
+      const [detail, history] = await Promise.all([api.getProject(id), api.deployments(id)]);
+      project = detail?.project ?? project;
+      const incoming = history?.deployments ?? [];
+
+      // A redeploy creates its deployment record asynchronously in the worker.
+      if (livePolling && !liveLogId) {
+        const known = new Set(deployments.map((dep) => dep.id));
+        const fresh = incoming.find((dep) => !known.has(dep.id));
+        if (fresh) liveLogId = fresh.id;
+      }
+
+      deployments = withOpenState(incoming);
+      const stillRunning =
+        incoming.some(isRunning) ||
+        project?.status === 'pending' ||
+        project?.status === 'building';
+
+      if (stillRunning) {
+        notice = 'Build in progress — the log is updating live.';
+      } else if (livePolling) {
+        const newest = incoming[0];
+        if (newest?.status === 'success') notice = 'Deploy finished successfully.';
+        else if (newest?.status === 'failed') {
+          notice = 'Deploy failed. Open the build log for details.';
+        }
+        livePolling = false;
+      }
+    } catch (err) {
+      error = err?.message ?? 'Could not refresh the build log';
+      livePolling = false;
+    }
+  }
+
   async function load() {
     if (!id) return;
     loading = true;
@@ -115,7 +169,11 @@
     try {
       const [detail, history] = await Promise.all([api.getProject(id), api.deployments(id)]);
       project = detail?.project ?? null;
-      deployments = history?.deployments ?? [];
+      const incoming = history?.deployments ?? [];
+      deployments = withOpenState(incoming);
+      if (incoming.some(isRunning) || ['pending', 'building'].includes(project?.status)) {
+        livePolling = true;
+      }
       envRows = rowsFromKeys(project?.env_keys ?? []);
       domain = project?.custom_domain ?? '';
     } catch (err) {
@@ -131,16 +189,37 @@
     load();
   });
 
+  $effect(() => {
+    const running =
+      livePolling ||
+      deployments.some(isRunning) ||
+      project?.status === 'pending' ||
+      project?.status === 'building';
+    if (running && !pollTimer) {
+      pollTimer = window.setInterval(refreshLive, 900);
+    } else if (!running && pollTimer) {
+      window.clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  });
+
+  onDestroy(() => {
+    if (pollTimer) window.clearInterval(pollTimer);
+  });
+
   async function redeploy() {
     busy = true;
     notice = '';
     error = '';
+    liveLogId = '';
+    livePolling = true;
     try {
       await api.redeploy(id);
-      notice = 'New deploy queued.';
-      await load();
+      notice = 'Build starting — the log is updating live.';
+      await refreshLive();
     } catch (err) {
       error = err?.message ?? 'Could not start a deploy';
+      livePolling = false;
     } finally {
       busy = false;
     }
@@ -388,32 +467,43 @@
                   </div>
                   <code>{dep.release || 'no release'}</code>
                 </div>
-                <div class="dep-side">
-                  {#if dep.status === 'success' && dep.release && i > 0}
+                {#if dep.status === 'success' && dep.release && i > 0}
+                  <div class="dep-side">
                     <button type="button" onclick={() => rollback(dep.id)} disabled={busy}>Restore</button>
-                  {/if}
-                  <button
-                    type="button"
-                    class="copy"
-                    aria-label={copiedLog === dep.id ? 'Copied' : 'Copy build log'}
-                    title={copiedLog === dep.id ? 'Copied' : 'Copy build log'}
-                    onclick={(event) => copyLog(event, dep.id, dep.log)}
-                  >
-                    {#if copiedLog === dep.id}
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <path d="M20 6 9 17l-5-5" />
-                      </svg>
-                    {:else}
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                        <rect x="9" y="9" width="11" height="11" rx="2" />
-                        <path d="M5 15V5a2 2 0 0 1 2-2h10" />
-                      </svg>
-                    {/if}
-                  </button>
-                </div>
-                <details class="log">
-                  <summary>Build log</summary>
-                  <pre>{dep.log || 'No log recorded.'}</pre>
+                  </div>
+                {/if}
+                <details class="log" bind:open={dep.open}>
+                  <summary>
+                    <span>
+                      Build log
+                      {#if isRunning(dep)}
+                        <em class="live-pill">Live</em>
+                      {/if}
+                    </span>
+                  </summary>
+                  <div class="log-box">
+                    <pre>{dep.log || (isRunning(dep) ? 'Waiting for the first build step…' : 'No log recorded.')}</pre>
+                    <div class="log-actions">
+                      <button
+                        type="button"
+                        class="copy"
+                        aria-label={copiedLog === dep.id ? 'Copied' : 'Copy build log'}
+                        title={copiedLog === dep.id ? 'Copied' : 'Copy build log'}
+                        onclick={(event) => copyLog(event, dep.id, dep.log)}
+                      >
+                        {#if copiedLog === dep.id}
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M20 6 9 17l-5-5" />
+                          </svg>
+                        {:else}
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <rect x="9" y="9" width="11" height="11" rx="2" />
+                            <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+                          </svg>
+                        {/if}
+                      </button>
+                    </div>
+                  </div>
                 </details>
               </li>
             {/each}
@@ -881,6 +971,31 @@
     justify-content: space-between;
     gap: 12px;
     cursor: pointer;
+  }
+
+  summary > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .live-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 3px 9px;
+    border-radius: 999px;
+    background: var(--soft);
+    color: var(--blue);
+    font: 700 12px/1 'Gabarito', sans-serif;
+    font-style: normal;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  .log-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
   }
 
   button.copy {
