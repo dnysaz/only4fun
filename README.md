@@ -238,6 +238,11 @@ Backend endpoints:
   IP is not supported without the apex-proxying entitlement. The UI shows a
   warning when custom-hostname registration fails; domain storage and
   Host-based serving still work when DNS points to the server.
+- The origin nginx must forward every host other than the landing page
+  (`only4.fun` / `www.only4.fun`) to the Go backend, including custom domains.
+  Otherwise nginx serves the frontend `index.html` for custom domains instead
+  of the project's published site. Use a `default_server` proxy to
+  `127.0.0.1:8080` and keep only the landing-page host on the static root.
 - Public endpoints are protected by a trusted-origin guard and per-IP rate limits.
   Uploads are size-limited and checked for path traversal and symlinks; GitHub URLs
   are validated before cloning, and SQL queries are parameterized.
