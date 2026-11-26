@@ -786,7 +786,9 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
-    min-height: 360px;
+    /* Do not let the file list grow the card; fill the row decided by the form. */
+    height: 0;
+    min-height: 100%;
     padding-left: 32px;
     border-left: 1px solid var(--line);
   }
@@ -839,8 +841,9 @@
     list-style: none;
     margin: 0;
     padding: 0;
+    flex: 1;
+    min-height: 0;
     overflow: auto;
-    max-height: 330px;
     font: 500 17px/1.7 'Gabarito', sans-serif;
   }
 
@@ -983,6 +986,7 @@
     }
 
     .tree-panel {
+      height: auto;
       min-height: 280px;
       padding: 22px 0 0;
       border-left: 0;
