@@ -549,7 +549,7 @@
           </div>
           <p class="hint">
             Name is the first part of the hostname you enter above — for
-            <code>wavetify.lagitest.xyz</code>, use <code>wavetify</code>. Use a subdomain; most DNS
+            <code>mysite.example.com</code>, use <code>mysite</code>. Use a subdomain; most DNS
             providers do not allow CNAME at the root. Keep the proxy off (grey cloud). SSL can take
             a few minutes to activate. Leave the field blank to remove the domain.
           </p>
