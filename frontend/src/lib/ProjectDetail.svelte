@@ -448,7 +448,18 @@
             </button>
           </div>
           <p class="hint">
-            Point a <code>CNAME</code> record to <code>{CNAME_TARGET}</code>, then save. Leave it
+            Add this record at your DNS provider, then save the full hostname above (for example
+            <code>www.example.com</code>):
+          </p>
+          <div class="dns-help" aria-label="DNS record example">
+            <div><span>Type</span><code>CNAME</code></div>
+            <div><span>Name</span><code>www</code></div>
+            <div><span>Target</span><code>{CNAME_TARGET}</code></div>
+            <div><span>Proxy</span><code>DNS only</code></div>
+          </div>
+          <p class="hint">
+            Replace <code>www</code> with the subdomain you want to use. Keep the proxy off (grey
+            cloud) at your DNS provider. SSL can take a few minutes to activate. Leave the field
             blank to remove the domain.
           </p>
         </section>
@@ -887,6 +898,35 @@
   .hint code {
     font-family: 'DM Mono', monospace;
     color: var(--ink);
+  }
+
+  .dns-help {
+    margin-top: 12px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .dns-help > div {
+    display: grid;
+    grid-template-columns: 62px minmax(0, 1fr);
+    gap: 10px;
+    align-items: center;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .dns-help > div + div {
+    border-top: 1px solid var(--line);
+  }
+
+  .dns-help span {
+    color: var(--muted);
+  }
+
+  .dns-help code {
+    font-family: 'DM Mono', monospace;
+    overflow-wrap: anywhere;
   }
 
   .domain-row {
