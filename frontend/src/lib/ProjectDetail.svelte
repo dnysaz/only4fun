@@ -868,6 +868,7 @@
 
   .overview-link {
     color: var(--ink);
+    font-weight: 700;
     text-decoration: underline;
     text-decoration-thickness: 2px;
     text-underline-offset: 0.18em;
