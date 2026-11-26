@@ -70,6 +70,7 @@
   let domainState = $state('none');
   let domainStatusMessage = $state('');
   let domainStatusTimer = null;
+  let checkingDomain = $state(false);
   let busy = $state(false);
 
   let envRows = $state([]);
@@ -331,7 +332,8 @@
   }
 
   async function loadDomainStatus() {
-    if (!id) return;
+    if (!id || checkingDomain) return;
+    checkingDomain = true;
     try {
       const data = await api.domainStatus(id);
       domainState = data?.state ?? 'unknown';
@@ -339,12 +341,20 @@
     } catch {
       domainState = 'unknown';
       domainStatusMessage = 'Could not check the domain status right now.';
+    } finally {
+      checkingDomain = false;
     }
   }
 
   $effect(() => {
-    if (!project?.custom_domain || domainState === 'active' || domainStatusTimer) return;
-    domainStatusTimer = window.setInterval(loadDomainStatus, 8000);
+    if (!project?.custom_domain || domainState === 'active') {
+      if (domainStatusTimer) {
+        window.clearInterval(domainStatusTimer);
+        domainStatusTimer = null;
+      }
+      return;
+    }
+    if (!domainStatusTimer) domainStatusTimer = window.setInterval(loadDomainStatus, 8000);
   });
 
   async function copyLog(event, deploymentId, log) {
@@ -432,7 +442,7 @@
           <span>Custom domain</span>
           {#if project.custom_domain}
             <a
-              class="overview-link mono"
+              class="overview-link"
               href={`https://${project.custom_domain}`}
               target="_blank"
               rel="noreferrer"
@@ -441,7 +451,7 @@
               {project.custom_domain} ↗
             </a>
           {:else}
-            <b class="mono">not set</b>
+            <b>not set</b>
           {/if}
         </div>
       </section>
@@ -513,6 +523,18 @@
                 <b>{DOMAIN_STATE_LABEL[domainState] ?? 'Checking…'}</b>
                 <span>{domainStatusMessage || 'Checking the domain status…'}</span>
               </div>
+              {#if domainState !== 'active'}
+                <button
+                  type="button"
+                  class="domain-refresh"
+                  onclick={loadDomainStatus}
+                  disabled={checkingDomain}
+                  aria-label="Check domain status again"
+                >
+                  <span aria-hidden="true">↻</span>
+                  {checkingDomain ? 'Checking…' : 'Check again'}
+                </button>
+              {/if}
             </div>
           {/if}
           <p class="hint">
@@ -1022,6 +1044,7 @@
   .domain-status {
     display: flex;
     align-items: flex-start;
+    flex-wrap: wrap;
     gap: 10px;
     margin-top: 14px;
     padding: 10px 12px;
@@ -1029,6 +1052,23 @@
     border-left: 3px solid var(--muted);
     border-radius: 10px;
     font-family: inherit;
+  }
+
+  .domain-status > div {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .domain-refresh {
+    margin-left: auto;
+    padding: 8px 12px;
+    font-size: 15px;
+    white-space: nowrap;
+  }
+
+  .domain-refresh span {
+    font-size: 17px;
+    line-height: 1;
   }
 
   .domain-status.green {
