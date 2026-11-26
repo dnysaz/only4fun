@@ -194,6 +194,7 @@ Frontend variables (see `frontend/.env.example`):
 | --- | --- |
 | `VITE_API_BASE` | Absolute API origin; leave empty to use the dev proxy |
 | `VITE_API_PROXY` | Dev/preview proxy target, normally `http://localhost:8080` |
+| `VITE_CUSTOM_DOMAIN_CNAME` | CNAME target shown in the custom-domain hint, default `customers.only4.fun` |
 
 ## Routes and API
 
@@ -230,10 +231,13 @@ Backend endpoints:
   not source code; only a `.gitkeep` placeholder is tracked.
 - Cloudflare DNS automation stays off when `CLOUDFLARE_API_KEY` and
   `CLOUDFLARE_ZONE_ID` are empty. Without it, no DNS records are created.
-- Custom-domain SSL needs Cloudflare for SaaS enabled on the zone and a token
-  with `Zone > SSL and Certificates > Edit`. The UI shows a warning when the
-  custom-hostname registration fails; domain storage and Host-based serving
-  still work when DNS points to the server.
+- Custom-domain SSL needs Cloudflare for SaaS enabled on the zone, an active
+  Fallback Origin, and a token with `Zone > SSL and Certificates > Edit`.
+  Create a proxied CNAME target (`customers.only4.fun` → `fallback.only4.fun`)
+  and ask users to point their domain's CNAME to it; an A record to the origin
+  IP is not supported without the apex-proxying entitlement. The UI shows a
+  warning when custom-hostname registration fails; domain storage and
+  Host-based serving still work when DNS points to the server.
 - Public endpoints are protected by a trusted-origin guard and per-IP rate limits.
   Uploads are size-limited and checked for path traversal and symlinks; GitHub URLs
   are validated before cloning, and SQL queries are parameterized.

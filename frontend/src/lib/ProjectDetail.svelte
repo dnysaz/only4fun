@@ -8,6 +8,7 @@
   import { reload } from './workspace.svelte.js';
 
   const KEY = /^[A-Za-z_][A-Za-z0-9_]*$/;
+  const CNAME_TARGET = import.meta.env.VITE_CUSTOM_DOMAIN_CNAME || 'customers.only4.fun';
   const STATUS = {
     deployed: { label: 'Live', tone: 'green' },
     building: { label: 'Building', tone: 'yellow' },
@@ -447,8 +448,8 @@
             </button>
           </div>
           <p class="hint">
-            Point the domain's <code>A</code> record to the platform IP, then save. Leave it blank
-            to remove the domain.
+            Point a <code>CNAME</code> record to <code>{CNAME_TARGET}</code>, then save. Leave it
+            blank to remove the domain.
           </p>
         </section>
       </div>
