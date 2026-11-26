@@ -180,8 +180,8 @@ Backend variables (see `backend/.env.example`):
 | `SESSION_SECRET` | empty | Encrypts tokens and hashes sessions; required in production |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | empty | GitHub OAuth app credentials |
 | `GITHUB_REDIRECT_URL` | `http://localhost:8080/auth/github/callback` | OAuth callback |
-| `CLOUDFLARE_API_KEY`, `CLOUDFLARE_ZONE_ID` | empty | Enable automatic DNS when both are set |
-| `CLOUDFLARE_DOMAIN` | `only4.fun` | Zone used for project subdomains |
+| `CLOUDFLARE_API_KEY`, `CLOUDFLARE_ZONE_ID` | empty | Enable Cloudflare automation when both are set; token needs Zone:DNS:Edit and Zone:SSL and Certificates:Edit |
+| `CLOUDFLARE_DOMAIN` | `only4.fun` | Zone used for project subdomains; Cloudflare for SaaS must be enabled for custom-hostname SSL |
 | `CLOUDFLARE_TARGET` | empty | A record IP or CNAME target |
 | `CLOUDFLARE_PROXY` | `true` | Route traffic through Cloudflare (TLS at the edge) |
 | `CACHE_DIR` | `/tmp/only4.fun/cache` | Temporary clone and build workspace |
@@ -230,6 +230,10 @@ Backend endpoints:
   not source code; only a `.gitkeep` placeholder is tracked.
 - Cloudflare DNS automation stays off when `CLOUDFLARE_API_KEY` and
   `CLOUDFLARE_ZONE_ID` are empty. Without it, no DNS records are created.
+- Custom-domain SSL needs Cloudflare for SaaS enabled on the zone and a token
+  with `Zone > SSL and Certificates > Edit`. The UI shows a warning when the
+  custom-hostname registration fails; domain storage and Host-based serving
+  still work when DNS points to the server.
 - Public endpoints are protected by a trusted-origin guard and per-IP rate limits.
   Uploads are size-limited and checked for path traversal and symlinks; GitHub URLs
   are validated before cloning, and SQL queries are parameterized.
