@@ -39,7 +39,7 @@ Verifikasi standar: `cd backend && go test ./... -count=1`, `go vet ./...`, `cd 
 
 | ID | Temuan | File utama | Status | Catatan |
 |---|---|---|---|---|
-| M1 | Custom domain tidak dihapus dari Cloudflare saat project delete | `backend/internal/handler/project.go` | Pending | Panggil `DeleteCustomHostname`. |
+| M1 | Custom domain tidak dihapus dari Cloudflare saat project delete | `backend/internal/handler/project.go` | Done | `DeleteProject` ikut memanggil `DeleteCustomHostname` (best effort). |
 | M2 | Unique index custom_domain case-sensitive | `backend/internal/database/migrate.go` | Pending | Index `lower(custom_domain)`. |
 | M3 | SSR startup menahan global mutex sampai 10 detik | `backend/internal/server/process_manager.go` | Pending | Lock per subdomain. |
 | M4 | Env key bisa override `PATH`, `LD_PRELOAD`, `NODE_OPTIONS` | `backend/internal/handler/project.go`, `builder/build.go` | Pending | Deny-list + namespace. |
@@ -91,3 +91,4 @@ Verifikasi standar: `cd backend && go test ./... -count=1`, `go vet ./...`, `cd 
 - 2026-11-27 — H9 done: instant deploy tidak bisa launch tanpa alamat preview yang valid.
 - 2026-11-27 — H10 done: sesi divalidasi ulang saat pindah route dan idle timer.
 - 2026-11-27 — H11 done: polling detail project berhenti saat sesi hangus.
+- 2026-11-27 — M1 done: custom hostname ikut dihapus saat project dihapus.

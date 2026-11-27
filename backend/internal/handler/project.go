@@ -386,10 +386,15 @@ func (h *ProjectHandler) DeleteProject(c *gin.Context) {
 		return
 	}
 
-	// Hapus juga record DNS subdomain (best effort).
+	// Hapus juga record DNS subdomain dan custom hostname (best effort).
 	if h.dns != nil && h.dns.Enabled() {
 		if err := h.dns.DeleteRecord(c.Request.Context(), project.Subdomain); err != nil {
 			log.Printf("failed to delete DNS record %s: %v", project.Subdomain, err)
+		}
+		if project.CustomDomain != "" {
+			if err := h.dns.DeleteCustomHostname(c.Request.Context(), project.CustomDomain); err != nil {
+				log.Printf("failed to delete custom hostname %s: %v", project.CustomDomain, err)
+			}
 		}
 	}
 
