@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"net"
@@ -9,6 +11,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"sync"
 	"syscall"
@@ -46,8 +49,26 @@ type Process struct {
 	Cmd        *exec.Cmd
 	StartedAt  time.Time
 	LastAccess time.Time
+	// EnvHash membantu mendeteksi perubahan env var project yang butuh restart.
+	EnvHash string
 	// done ditutup oleh goroutine Wait setelah proses benar-benar keluar.
 	done chan struct{}
+}
+
+func envHash(env map[string]string) string {
+	if len(env) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(env))
+	for key := range env {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	h := sha256.New()
+	for _, key := range keys {
+		fmt.Fprintf(h, "%s=%s\n", key, env[key])
+	}
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 // NewProcessManager membuat process manager baru.
@@ -118,7 +139,13 @@ func killProcess(p *Process) {
 // Bila proses lama sudah usang (build baru menulis ulang entry point), proses
 // baru dinyalakan di port lain dan baru setelah siap port aktif ditukar, lalu
 // proses lama dimatikan. Dengan begitu tidak ada jeda 502 selama redeploy.
-func (pm *ProcessManager) Start(subdomain, serverEntry string) (int, error) {
+func (pm *ProcessManager) Start(subdomain, serverEntry string, envVars ...map[string]string) (int, error) {
+	var env map[string]string
+	if len(envVars) > 0 {
+		env = envVars[0]
+	}
+	hash := envHash(env)
+
 	// Startup bisa memakan waktu 10 detik. Kunci global hanya dipakai untuk
 	// membaca/menulis state bersama, bukan saat menunggu proses siap.
 	lock := pm.keyLock(subdomain)
@@ -136,7 +163,7 @@ func (pm *ProcessManager) Start(subdomain, serverEntry string) (int, error) {
 		// Build baru menulis ulang file entry point. Jika file lebih baru
 		// dari proses yang berjalan, restart agar versi terbaru dipakai
 		// (tanpa ini redeploy SSR terus menyajikan kode lama).
-		stale := false
+		stale := old.EnvHash != hash
 		if info, err := os.Stat(serverEntry); err == nil && info.ModTime().After(old.StartedAt) {
 			stale = true
 		}
@@ -154,7 +181,7 @@ func (pm *ProcessManager) Start(subdomain, serverEntry string) (int, error) {
 	}
 	pm.mu.Unlock()
 
-	p, err := pm.startProcess(subdomain, serverEntry)
+	p, err := pm.startProcess(subdomain, serverEntry, env, hash)
 	if err != nil {
 		// Jangan matikan versi lama bila versi baru gagal siap; lebih baik
 		// tetap menyajikan kode lama daripada 503.
@@ -188,7 +215,9 @@ func ssrEnv(port int) []string {
 	env := execenv.Base("")
 	return append(env,
 		fmt.Sprintf("PORT=%d", port),
+		"NODE_ENV=production",
 		"HOST=127.0.0.1",
+		"HOSTNAME=127.0.0.1",
 		"BIND=127.0.0.1",
 		"LISTEN_ADDRESS=127.0.0.1",
 	)
@@ -197,7 +226,7 @@ func ssrEnv(port int) []string {
 // startProcess menyalakan satu proses Node.js dan menunggu port-nya siap.
 // Kunci global hanya dipakai saat mencatat/membebaskan port, bukan saat
 // menunggu readiness, supaya subdomain lain tetap bisa dilayani.
-func (pm *ProcessManager) startProcess(subdomain, serverEntry string) (*Process, error) {
+func (pm *ProcessManager) startProcess(subdomain, serverEntry string, env map[string]string, hash string) (*Process, error) {
 	// Alokasi port yang benar-benar bebas.
 	pm.mu.Lock()
 	port, err := pm.allocatePort()
@@ -212,7 +241,9 @@ func (pm *ProcessManager) startProcess(subdomain, serverEntry string) (*Process,
 		return nil, fmt.Errorf("failed to prepare SSR home: %w", err)
 	}
 	cmd := exec.Command("node", serverEntry)
-	cmd.Env = ssrEnv(port)
+	// Env var project dipakai saat runtime (DB, API key, secret JWT). Nilai
+	// server tetap menang lewat WithUserEnv, jadi tidak ada kebocoran secret.
+	cmd.Env = execenv.WithUserEnv(ssrEnv(port), env)
 	cmd.Dir = filepath.Dir(serverEntry)
 
 	// Redirect output ke log
@@ -276,6 +307,7 @@ func (pm *ProcessManager) startProcess(subdomain, serverEntry string) (*Process,
 		Cmd:        cmd,
 		StartedAt:  time.Now(),
 		LastAccess: time.Now(),
+		EnvHash:    hash,
 		done:       done,
 	}, nil
 }

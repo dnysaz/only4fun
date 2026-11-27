@@ -18,6 +18,10 @@ import (
 	"only4.fun/backend/internal/execenv"
 )
 
+// nextSSRMarker ditulis bersama wrapper server.js agar server tahu bahwa
+// root server.js memang dibuat untuk Next.js, bukan file acuan dari repo.
+const nextSSRMarker = ".only4-next-ssr"
+
 // Job adalah satu permintaan deployment.
 type Job struct {
 	ProjectID string
@@ -105,7 +109,7 @@ func (b *Builder) Build(ctx context.Context, job Job, logf func(string)) (string
 
 	target := filepath.Join(b.cfg.SitesDir, job.Subdomain)
 	logf(fmt.Sprintf("publish %s -> %s", outputDir, target))
-	if err := publish(outputDir, target); err != nil {
+	if err := publishWithNodeModules(outputDir, target, needsRuntimeNodeModules(outputDir)); err != nil {
 		return "", err
 	}
 	logf("build finished")
@@ -236,8 +240,58 @@ func (b *Builder) runBuild(ctx context.Context, job Job, workDir string, logf fu
 	if err != nil {
 		return "", err
 	}
+	// Next.js standalone tidak menyertakan aset statis/public di dalam folder
+	// standalone-nya. Tanpa ini CSS/JS/image 404 walaupun build sukses.
+	if copied, err := prepareStandaloneAssets(workDir, outputDir); err != nil {
+		return "", err
+	} else if copied > 0 {
+		logf(fmt.Sprintf("standalone assets: copied %d files", copied))
+	}
 	logf("detected output: " + filepath.Base(outputDir))
 	return outputDir, nil
+}
+
+// prepareStandaloneAssets mengikuti rekomendasi deploy Next.js: sajikan
+// .next/static dan public dari dalam folder .next/standalone. Mengembalikan
+// jumlah file yang disalin supaya bisa dicatat di log build.
+func prepareStandaloneAssets(workDir, outputDir string) (int, error) {
+	if filepath.Base(outputDir) != "standalone" ||
+		filepath.Base(filepath.Dir(outputDir)) != ".next" {
+		return 0, nil
+	}
+
+	copied := 0
+	assets := []struct{ src, dst string }{
+		{filepath.Join(workDir, ".next", "static"), filepath.Join(outputDir, ".next", "static")},
+		{filepath.Join(workDir, "public"), filepath.Join(outputDir, "public")},
+	}
+	for _, asset := range assets {
+		info, err := os.Stat(asset.src)
+		if err != nil || !info.IsDir() {
+			continue
+		}
+		if err := copyTree(asset.src, asset.dst, "", true); err != nil {
+			return copied, err
+		}
+		_ = filepath.Walk(asset.src, func(_ string, info os.FileInfo, err error) error {
+			if err == nil && info != nil && !info.IsDir() {
+				copied++
+			}
+			return nil
+		})
+	}
+	return copied, nil
+}
+
+// needsRuntimeNodeModules menandakan output butuh dependency saat runtime.
+// Next.js mode biasa (next start) memakai wrapper server.js + .next/server;
+// standalone membawa node_modules-nya sendiri di dalam folder output.
+func needsRuntimeNodeModules(outputDir string) bool {
+	if !fileExists(filepath.Join(outputDir, "server.js")) {
+		return false
+	}
+	return dirExists(filepath.Join(outputDir, ".next", "server")) ||
+		dirExists(filepath.Join(outputDir, "node_modules"))
 }
 
 func (b *Builder) exec(ctx context.Context, job Job, workDir, command string, logf func(string)) error {
@@ -308,31 +362,43 @@ func detectOutput(workDir string) (string, error) {
 				return dir, nil
 			}
 			if name == ".next" {
-				// Next.js SSR: standalone output
+				// Static export didahulukan agar tidak salah masuk mode SSR.
+				if fileExists(filepath.Join(dir, "out", "index.html")) {
+					return filepath.Join(dir, "out"), nil
+				}
+				// Next.js standalone: server + node_modules sudah dibundel.
 				if fileExists(filepath.Join(dir, "standalone", "server.js")) {
 					return filepath.Join(dir, "standalone"), nil
 				}
-				// Next.js SSR without standalone: .next/ with server/ directory
-				if info, err := os.Stat(filepath.Join(dir, "server")); err == nil && info.IsDir() {
-					// Check if next binary is available to run 'next start'
-					if fileExists(filepath.Join(workDir, "node_modules", ".bin", "next")) {
-						// Create a wrapper server.js that runs 'next start'
-						wrapper := filepath.Join(workDir, "server.js")
-						content := `const { spawn } = require('child_process');
+				// Next.js biasa: jalankan 'next start' lewat wrapper server.js.
+				// Pakai CLI asli (bukan symlink node_modules/.bin) agar tetap
+				// bisa dipanggil setelah publish.
+				nextCLI := filepath.Join(workDir, "node_modules", "next", "dist", "bin", "next")
+				if serverInfo, err := os.Stat(filepath.Join(dir, "server")); err == nil &&
+					serverInfo.IsDir() && fileExists(nextCLI) {
+					wrapper := filepath.Join(workDir, "server.js")
+					content := `const { spawn } = require('child_process');
 const path = require('path');
-const port = process.env.PORT || 3000;
-const nextBin = path.join(__dirname, 'node_modules', '.bin', 'next');
-const child = spawn(nextBin, ['start', '-p', String(port)], { stdio: 'inherit', cwd: __dirname, env: process.env });
+const port = Number(process.env.PORT) || 3000;
+const nextCLI = path.join(__dirname, 'node_modules', 'next', 'dist', 'bin', 'next');
+const child = spawn(process.execPath, [nextCLI, 'start', '-p', String(port), '-H', '127.0.0.1'], {
+  stdio: 'inherit',
+  cwd: __dirname,
+  env: { ...process.env, NODE_ENV: 'production' },
+});
+child.on('error', (err) => { console.error(err); process.exit(1); });
 child.on('exit', (code) => process.exit(code || 0));
 `
-						_ = os.WriteFile(wrapper, []byte(content), 0644)
-						// Publish the whole project so node_modules is available
-						return workDir, nil
+					if err := os.WriteFile(wrapper, []byte(content), 0o644); err != nil {
+						return "", err
 					}
-				}
-				// Next.js static export
-				if fileExists(filepath.Join(dir, "out", "index.html")) {
-					return filepath.Join(dir, "out"), nil
+					// Penanda ini dipakai server saat memilih entry SSR: Next.js
+					// tanpa script "start" tetap boleh memakai wrapper ini.
+					if err := os.WriteFile(filepath.Join(workDir, nextSSRMarker), []byte("next-start\n"), 0o644); err != nil {
+						return "", err
+					}
+					// node_modules ikut dipublikasikan (lihat needsRuntimeNodeModules).
+					return workDir, nil
 				}
 			}
 		}
@@ -428,7 +494,7 @@ func hasBuildScript(path string) bool {
 }
 
 func (b *Builder) publish(outputDir, target string) error {
-	return publish(outputDir, target)
+	return publishWithNodeModules(outputDir, target, needsRuntimeNodeModules(outputDir))
 }
 
 // publish menerbitkan hasil build secara atomik.
@@ -438,6 +504,10 @@ func (b *Builder) publish(outputDir, target string) error {
 // Rename symlink bersifat atomik di POSIX, sehingga tidak ada momen ketika
 // subdomain kehilangan folder aktif (versi lama tetap dipakai sampai detik terakhir).
 func publish(src, dst string) error {
+	return publishWithNodeModules(src, dst, false)
+}
+
+func publishWithNodeModules(src, dst string, includeNodeModules bool) error {
 	parent := filepath.Dir(dst)
 	base := filepath.Base(dst)
 	releasesDir := filepath.Join(parent, ".releases", base)
@@ -475,7 +545,7 @@ func publish(src, dst string) error {
 	if err != nil {
 		return fmt.Errorf("failed to prepare release folder: %w", err)
 	}
-	if err := copyTree(src, release, previousRelease); err != nil {
+	if err := copyTree(src, release, previousRelease, includeNodeModules); err != nil {
 		_ = os.RemoveAll(release)
 		return fmt.Errorf("failed to copy build output: %w", err)
 	}
@@ -545,7 +615,11 @@ func pruneReleases(dir string, keep int) {
 	}
 }
 
-func copyTree(src, dst string, previousRelease string) error {
+func copyTree(src, dst string, previousRelease string, includeNodeModules bool) error {
+	srcRoot, err := filepath.EvalSymlinks(src)
+	if err != nil {
+		srcRoot = src
+	}
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -555,10 +629,14 @@ func copyTree(src, dst string, previousRelease string) error {
 			return err
 		}
 		if rel == "." {
-			return nil
+			return os.MkdirAll(dst, 0o755)
 		}
-		// Jangan ikut menyalin metadata repo dan dependency bila output di root repo.
-		if info.IsDir() && (info.Name() == "node_modules" || info.Name() == ".git") {
+		// .git selalu dibuang. node_modules hanya ikut untuk output SSR yang
+		// memang butuh runtime dependency (Next.js next start / standalone).
+		if info.IsDir() && info.Name() == ".git" {
+			return filepath.SkipDir
+		}
+		if info.IsDir() && info.Name() == "node_modules" && !includeNodeModules {
 			return filepath.SkipDir
 		}
 		target := filepath.Join(dst, rel)
@@ -566,7 +644,34 @@ func copyTree(src, dst string, previousRelease string) error {
 			return os.MkdirAll(target, 0o755)
 		}
 		if info.Mode()&os.ModeSymlink != 0 {
-			return nil
+			// pnpm/npm workspaces memakai symlink di node_modules. Symlink yang
+			// keluar dari folder build sengaja dibuang agar tidak bocor atau
+			// menunjuk ke file server.
+			if !includeNodeModules {
+				return nil
+			}
+			link, err := os.Readlink(path)
+			if err != nil {
+				return nil
+			}
+			resolved, err := filepath.EvalSymlinks(path)
+			if err != nil {
+				return nil
+			}
+			relResolved, err := filepath.Rel(srcRoot, resolved)
+			if err != nil || relResolved == ".." || strings.HasPrefix(relResolved, ".."+string(os.PathSeparator)) {
+				return nil
+			}
+			if filepath.IsAbs(link) {
+				link, err = filepath.Rel(filepath.Dir(target), resolved)
+				if err != nil {
+					return nil
+				}
+			}
+			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+				return err
+			}
+			return os.Symlink(link, target)
 		}
 
 		// Jika ada previousRelease dan file sudah ada di previousRelease dengan ukuran dan waktu yang sama,
@@ -649,6 +754,11 @@ func lastLines(s string, n int) string {
 func fileExists(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && !info.IsDir()
+}
+
+func dirExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
 }
 
 func validateSubdomain(subdomain string) error {

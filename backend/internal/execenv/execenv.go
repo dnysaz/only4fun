@@ -36,9 +36,9 @@ var reservedKeys = map[string]struct{}{
 	"BASH_ENV": {}, "ENV": {}, "CDPATH": {}, "IFS": {},
 	"LD_PRELOAD": {}, "LD_LIBRARY_PATH": {}, "DYLD_INSERT_LIBRARIES": {},
 	"DYLD_LIBRARY_PATH": {}, "DYLD_FRAMEWORK_PATH": {},
-	"NODE_OPTIONS": {}, "NODE_PATH": {}, "PORT": {},
+	"NODE_OPTIONS": {}, "NODE_PATH": {}, "PORT": {}, "NODE_ENV": {},
 	// SSR wajib tetap di loopback; user tidak boleh mengganti alamat bind.
-	"HOST": {}, "BIND": {}, "LISTEN_ADDRESS": {},
+	"HOST": {}, "HOSTNAME": {}, "BIND": {}, "LISTEN_ADDRESS": {},
 	"NPM_CONFIG_CACHE": {}, "NPM_CONFIG_PREFIX": {}, "NPM_CONFIG_USERCONFIG": {},
 }
 

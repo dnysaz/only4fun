@@ -59,6 +59,27 @@ func TestServerEntryForProject(t *testing.T) {
 	}
 }
 
+func TestFindServerEntryNextMarker(t *testing.T) {
+	root := t.TempDir()
+	writeSiteFile := func(name, content string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(root, name), []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	writeSiteFile("server.js", "console.log(1)")
+	// Tanpa start script dan tanpa penanda builder, server.js tetap diabaikan.
+	if got := findServerEntry(root); got != "" {
+		t.Fatalf("findServerEntry without marker = %q, want empty", got)
+	}
+
+	writeSiteFile(nextSSRMarker, "next-start\n")
+	if got := findServerEntry(root); !strings.HasSuffix(got, "server.js") {
+		t.Fatalf("findServerEntry with Next.js marker = %q, want server.js", got)
+	}
+}
+
 func TestSiteHandlerFallsBackToReleasesInsideSitesDir(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	if err := secure.Init("only4.fun-test-secret"); err != nil {

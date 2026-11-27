@@ -25,6 +25,9 @@ import (
 // path folder hanya berisi karakter DNS yang sah (mencegah path traversal).
 var subdomainLabel = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 
+// nextSSRMarker ditulis builder bersama wrapper server.js Next.js.
+const nextSSRMarker = ".only4-next-ssr"
+
 // SiteHandler melayani hasil build berdasarkan Host request,
 // misal portfolio.only4.fun -> <SITES_DIR>/portfolio/index.html
 // Jika project memiliki server entry point (SSR), request akan di-proxy
@@ -144,8 +147,10 @@ func SiteHandler(cfg *config.Config, projectStore *database.ProjectStore, pm *Pr
 		// dari arsip pengguna, walaupun file tersebut muncul setelah build.
 		serverEntry := serverEntryForProject(root, project.RepoURL)
 		if serverEntry != "" {
-			// SSR mode: proxy ke Node.js process
-			port, err := pm.Start(project.Subdomain, serverEntry)
+			// SSR mode: proxy ke Node.js process. Env var project ikut
+			// diteruskan supaya API routes Next.js punya DB/API key saat runtime.
+			envVars, _ := projectStore.GetEnvVars(project.ID)
+			port, err := pm.Start(project.Subdomain, serverEntry, envVars)
 			if err != nil {
 				c.String(http.StatusServiceUnavailable, "server is starting, please retry")
 				return
@@ -170,11 +175,12 @@ func serverEntryForProject(root, repoURL string) string {
 
 // findServerEntry mencari entry point server yang dinyatakan secara eksplisit.
 // Repo statis yang kebetulan punya index.js/start.js tidak boleh dijalankan
-// sebagai server, jadi SSR hanya aktif bila package.json punya script "start"
-// atau tersedia output standalone Next.js.
+// sebagai server, jadi SSR hanya aktif bila package.json punya script "start",
+// tersedia output standalone Next.js, atau builder menulis penanda wrapper
+// Next.js (project tanpa script "start").
 func findServerEntry(root string) string {
 	candidates := []string{".next/standalone/server.js"}
-	if packageHasStartScript(root) {
+	if packageHasStartScript(root) || hasNextSSRMarker(root) {
 		candidates = append(candidates,
 			"server.js",
 			"server.mjs",
@@ -189,6 +195,12 @@ func findServerEntry(root string) string {
 		}
 	}
 	return ""
+}
+
+// hasNextSSRMarker melaporkan apakah builder membuat wrapper Next.js di root.
+func hasNextSSRMarker(root string) bool {
+	info, err := os.Stat(filepath.Join(root, nextSSRMarker))
+	return err == nil && !info.IsDir()
 }
 
 // packageHasStartScript melaporkan apakah package.json mendefinisikan script "start".

@@ -14,8 +14,10 @@ func TestWithUserEnvCannotOverrideInternalValues(t *testing.T) {
 		"LD_PRELOAD":     "/tmp/evil.so",
 		"NODE_OPTIONS":   "--require /tmp/evil.js",
 		"HOST":           "0.0.0.0",
+		"HOSTNAME":       "0.0.0.0",
 		"BIND":           "0.0.0.0",
 		"LISTEN_ADDRESS": "0.0.0.0",
+		"NODE_ENV":       "development",
 		"SUPABASE_URL":   "https://example.supabase.co",
 	}), "\n")
 
