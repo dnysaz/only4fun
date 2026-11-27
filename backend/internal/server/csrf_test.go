@@ -9,6 +9,43 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func TestDevOriginGuard(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.POST("/auth/dev-login", DevOriginGuard(), func(c *gin.Context) {
+		c.String(http.StatusOK, "ok")
+	})
+
+	call := func(origin string) int {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/auth/dev-login", nil)
+		if origin != "" {
+			req.Header.Set("Origin", origin)
+		}
+		r.ServeHTTP(w, req)
+		return w.Code
+	}
+
+	cases := []struct {
+		name   string
+		origin string
+		want   int
+	}{
+		{"no origin (local form)", "", http.StatusOK},
+		{"localhost", "http://localhost:5173", http.StatusOK},
+		{"loopback ip", "http://127.0.0.1:8080", http.StatusOK},
+		{"external site", "https://evil.example", http.StatusForbidden},
+		{"invalid origin", "javascript:alert(1)", http.StatusForbidden},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := call(tc.origin); got != tc.want {
+				t.Fatalf("status = %d, want %d", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestTrustedOriginGuard(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()

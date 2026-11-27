@@ -48,6 +48,31 @@ func TrustedOriginGuard(allowedOrigins []string) gin.HandlerFunc {
 	}
 }
 
+// DevOriginGuard melindungi endpoint DEV_LOGIN yang hanya boleh dipakai dari
+// browser di mesin yang sama. Origin loopback diizinkan; origin halaman lain
+// tetap ditolak walaupun request dikirim ke 127.0.0.1.
+func DevOriginGuard() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		origin := strings.TrimSpace(c.GetHeader("Origin"))
+		if origin == "" {
+			c.Next()
+			return
+		}
+		u, err := url.Parse(origin)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "cross-origin requests are not allowed"})
+			return
+		}
+		host := strings.ToLower(u.Hostname())
+		switch host {
+		case "localhost", "127.0.0.1", "::1":
+			c.Next()
+		default:
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"error": "cross-origin requests are not allowed"})
+		}
+	}
+}
+
 func normalizeOrigin(raw string) string {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {

@@ -92,7 +92,8 @@ func (h *DevLoginHandler) Login(c *gin.Context) {
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie(sessionCookieName, sessionID, int((24 * time.Hour).Seconds()), "/", "", isHTTPS(c), true)
 
-	next := safeNextPath(c.Query("next"))
+	// Endpoint ini sekarang POST: form dikirim lewat body, bukan query string.
+	next := safeNextPath(c.PostForm("next"))
 	if next == "" {
 		next = "/launchpad"
 	}

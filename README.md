@@ -137,9 +137,10 @@ The API listens on `http://localhost:8080` by default. Migrations run on startup
 the SQLite file is created at `data/only4.fun.db`. The `anonymous` system account is
 created automatically when the instant handlers are initialized.
 
-For local development only, `DEV_LOGIN=true` enables `GET /auth/dev-login`, which
-creates a demo session and three sample projects. The endpoint rejects requests
-that do not come from loopback. **Never enable it in production.**
+For local development only, `DEV_LOGIN=true` enables `/auth/dev-login`. `GET`
+shows a local form; `POST` creates a demo session and three sample projects.
+Both reject non-loopback requests, and `POST` also requires a loopback `Origin`
+plus a light rate limit. **Never enable it in production.**
 
 ### 2. Frontend
 
@@ -220,7 +221,7 @@ Backend endpoints:
 | Projects | `GET/POST /api/projects`, `GET/DELETE /api/projects/:id`, `POST /api/projects/upload`, `POST /api/projects/:id/deploy`, `GET/PUT /api/projects/:id/domain`, `GET /api/projects/:id/domain/status`, `GET /api/projects/:id/env`, `GET /api/projects/:id/repo`, `GET /api/projects/:id/webhook` |
 | Deployments | `GET /api/projects/:id/deployments`, `POST /api/projects/:id/deployments/:deploymentID/rollback`, `DELETE /api/projects/:id/deployments` |
 | GitHub | `GET /api/github/repos`, `GET /api/github/repos/:owner/:repo/contents`, `GET /api/github/repos/:owner/:repo/readme`, `GET /api/github/profile` |
-| Dev only | `GET /auth/dev-login` (loopback only, `DEV_LOGIN=true`) |
+| Dev only | `GET/POST /auth/dev-login` (loopback only, `DEV_LOGIN=true`) |
 
 ## Deployment notes
 

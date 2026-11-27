@@ -1,6 +1,8 @@
 package server
 
 import (
+	"fmt"
+	"html"
 	"log"
 	"strings"
 	"time"
@@ -131,7 +133,18 @@ func NewRouter(cfg *config.Config, db *database.Database, worker *builder.Worker
 	// Login dummy untuk pengembangan lokal; nonaktif kecuali DEV_LOGIN=true.
 	if cfg.Server.DevLogin {
 		log.Printf("DEV_LOGIN aktif: /auth/dev-login membuat sesi akun demo (jangan dipakai di production)")
-		r.GET("/auth/dev-login", handler.NewDevLoginHandler(userStore, projectStore, sessionStore).Login)
+		devLogin := handler.NewDevLoginHandler(userStore, projectStore, sessionStore)
+		// GET hanya menampilkan form (tanpa efek samping); POST yang membuat sesi
+		// dilindungi origin guard dan rate limit.
+		r.GET("/auth/dev-login", func(c *gin.Context) {
+			next := html.EscapeString(c.Query("next"))
+			page := fmt.Sprintf(`<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Dev login</title></head>
+<body><h1>Dev login</h1><p>Local development only.</p>
+<form method="post" action="/auth/dev-login"><input type="hidden" name="next" value="%s"><button type="submit">Log in as demo</button></form>
+</body></html>`, next)
+			c.Data(200, "text/html; charset=utf-8", []byte(page))
+		})
+		r.POST("/auth/dev-login", DevOriginGuard(), RateLimit(10, time.Minute), devLogin.Login)
 	}
 
 	// API routes (butuh auth middleware). Origin guard menutup CSRF lewat
