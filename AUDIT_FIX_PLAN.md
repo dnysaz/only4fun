@@ -30,7 +30,7 @@ Verifikasi standar: `cd backend && go test ./... -count=1`, `go vet ./...`, `cd 
 | H5 | Fallback encryption key publik saat `SESSION_SECRET` kosong | `backend/internal/secure/secure.go` | Done | Production gagal start bila secret kosong/<32 char; fallback hanya saat `DEV_LOGIN=true`. |
 | H6 | Data project lama tampil saat pindah ke project lain yang gagal dimuat | `frontend/src/lib/ProjectDetail.svelte` | Done | State direset di awal `load()`; semua response dibandingkan dengan `id` aktif sebelum ditulis. |
 | H7 | Guard availability:/submit belum menunggu hasil check sukses | `frontend/src/lib/CreateProject.svelte`, `Hero.svelte` | Done | Submit hanya aktif setelah `available === true` untuk nama yang sama; user belum login tetap lanjut OAuth lalu dicek ulang di `/deploy`. |
-| H8 | Repo URL arbitrary bisa lolos ke submit | `frontend/src/lib/CreateProject.svelte` | Pending | Validasi hostname GitHub. |
+| H8 | Repo URL arbitrary bisa lolos ke submit | `frontend/src/lib/CreateProject.svelte` | Done | `isValidGitHubRepoUrl()` memakai `URL()` + hostname github.com/www, menolak credentials; dipakai di `sourceValid`, preview, dan submit. |
 | H9 | Instant deploy bisa beda alamat dari preview | `frontend/src/lib/InstantDeploy.svelte` | Pending | Wajib token+subdomain preview. |
 | H10 | Revalidasi session hanya saat `visibilitychange` | `frontend/src/App.svelte`, `session.svelte.js` | Pending | Revalidate saat route change + idle timer. |
 | H11 | Poll tetap jalan setelah session expired | `frontend/src/lib/ProjectDetail.svelte` | Pending | Gate poll dengan `session.user`. |
@@ -87,3 +87,4 @@ Verifikasi standar: `cd backend && go test ./... -count=1`, `go vet ./...`, `cd 
 - 2026-11-27 — H5 done: production wajib SESSION_SECRET minimal 32 karakter.
 - 2026-11-27 — H6 done: detail project tidak menampilkan data lama saat route berubah.
 - 2026-11-27 — H7 done: submit menunggu availability check sukses.
+- 2026-11-27 — H8 done: URL repo divalidasi persis seperti backend.

@@ -2,6 +2,7 @@
   import { api } from './api.js';
   import { Loading } from './loading.ts';
   import { sanitize, validateName } from './subdomain.js';
+  import { isValidGitHubRepoUrl } from './github.js';
   import { buildTreeRows, normalizeTreePaths } from './fileTree.js';
   import { listZipPaths } from './zipTree.js';
   import { session, signOut } from './session.svelte.js';
@@ -45,7 +46,7 @@
   const isValidEnvKey = (key) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(key) && key.length <= 256;
 
   let nameCheck = $derived(validateName(name));
-  let sourceValid = $derived(tab === 'zip' ? !!file : /github\.com/i.test(repoUrl.trim()));
+  let sourceValid = $derived(tab === 'zip' ? !!file : isValidGitHubRepoUrl(repoUrl));
   let treeRows = $derived(buildTreeRows(tree.paths));
   let fileCount = $derived(normalizeTreePaths(tree.paths).length);
   let filteredRepos = $derived(
@@ -65,7 +66,8 @@
       accepted &&
       nameCheck.ok &&
       nameAvailable &&
-      (tab === 'zip' ? !!file : !!repoUrl.trim() && envValid),
+      sourceValid &&
+      (tab === 'zip' || envValid),
   );
 
   // Isi nama dari "?claim=" di URL hanya sekali (bukan tiap render).
@@ -116,7 +118,7 @@
   // File tree preview, same helper used by the instant launch page.
   $effect(() => {
     const source = tab === 'repo' ? repoUrl.trim() : file;
-    if (!source || (tab === 'repo' && !/github\.com/i.test(source))) {
+    if (!source || (tab === 'repo' && !isValidGitHubRepoUrl(source))) {
       treeToken++;
       tree = emptyTree;
       return;
@@ -275,8 +277,8 @@
       error = 'Choose a .zip file to upload.';
       return;
     }
-    if (tab === 'repo' && !repoUrl.trim()) {
-      error = 'Paste the GitHub repository URL or pick one below.';
+    if (tab === 'repo' && !sourceValid) {
+      error = 'Paste a valid GitHub repository URL or pick one below.';
       return;
     }
     if (tab === 'repo' && !envValid) {
