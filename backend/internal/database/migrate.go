@@ -81,7 +81,10 @@ func Migrate(db *Database) error {
 		`ALTER TABLE projects ADD COLUMN webhook_secret TEXT DEFAULT ''`,
 		// custom_domain memungkinkan project disajikan di domain milik user.
 		`ALTER TABLE projects ADD COLUMN custom_domain TEXT DEFAULT ''`,
-		`CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_custom_domain ON projects(custom_domain) WHERE custom_domain <> ''`,
+		// Lookup memakai lower(custom_domain), jadi uniqueness juga case-insensitive.
+		`DROP INDEX IF EXISTS idx_projects_custom_domain`,
+		`UPDATE projects SET custom_domain = lower(trim(custom_domain)) WHERE custom_domain <> ''`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_projects_custom_domain ON projects(lower(custom_domain)) WHERE custom_domain <> ''`,
 	} {
 		_, _ = db.DB().Exec(stmt)
 	}

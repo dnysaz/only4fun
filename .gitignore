@@ -36,3 +36,13 @@ logs/
 # Temporary helper files
 *_tmp.go
 .reset_*
+
+# Local dev-only notes / todos (not part of the repository)
+AUDIT_FIX_PLAN.md
+*AUDIT*.md
+*TODO*.md
+*todo*.md
+*NOTES*.md
+*notes*.md
+*.todo
+*.notes
