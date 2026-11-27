@@ -1678,7 +1678,19 @@
   }
 
   .tree-more {
-    margin: 10px 0 0;
+    align-self: flex-start;
+    margin: 12px 0 0;
+    border: 1px solid var(--line) !important;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--muted);
+    font: 600 15px/1 'Gabarito', sans-serif;
+    padding: 9px 16px;
+    cursor: pointer;
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease,
+      color 160ms ease;
   }
 
   .tree-note {

@@ -979,7 +979,26 @@
   }
 
   .tree-more {
-    margin: 10px 0 0;
+    align-self: flex-start;
+    margin: 12px 0 0;
+    border: 1px solid var(--line) !important;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--muted);
+    font: 600 15px/1 'Gabarito', sans-serif;
+    padding: 9px 16px;
+    cursor: pointer;
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease,
+      color 160ms ease;
+  }
+
+  /* Secondary controls stay flat; the global blue hover is for primary actions. */
+  :global(body .instant.workspace button.quiet:hover:not(:disabled)) {
+    background: var(--soft) !important;
+    border-color: var(--line) !important;
+    color: var(--ink) !important;
   }
 
   .tree-note {
