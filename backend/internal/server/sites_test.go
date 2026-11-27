@@ -258,3 +258,54 @@ func TestSiteHandlerServesCustomDomain(t *testing.T) {
 		t.Errorf("unknown host status = %d, want %d; body = %s", rec.Code, http.StatusNotFound, rec.Body.String())
 	}
 }
+
+func TestSiteHandlerNotFoundPageIncludesBrandedLayout(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	if err := secure.Init("only4.fun-test-secret"); err != nil {
+		t.Fatalf("init encryption: %v", err)
+	}
+	db, err := database.Init(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	if err := database.Migrate(db); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &config.Config{
+		Cloudflare: config.CloudflareConfig{Domain: "only4.fun"},
+		Server:     config.ServerConfig{FrontendURL: "https://only4.fun/"},
+		Build:      config.BuildConfig{SitesDir: t.TempDir()},
+	}
+	handler := SiteHandler(cfg, database.NewProjectStore(db), nil)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "http://missing.only4.fun/", nil)
+	c.Request.Host = "missing.only4.fun"
+	handler(c)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404; body = %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	for _, want := range []string{
+		"This site isn’t here.",
+		"custom domain changed",
+		"missing.only4.fun",
+		"Main navigation",
+		"Start a new project",
+		"Only4",
+		"Push, build, live.",
+		"https://only4.fun/deploy",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("body does not contain %q", want)
+		}
+	}
+	// Navbar, hero, dan footer masing-masing memakai empat bulatan warna warni.
+	if got := strings.Count(body, "<i></i>"); got < 12 {
+		t.Errorf("colored dots = %d, want at least 12", got)
+	}
+}
