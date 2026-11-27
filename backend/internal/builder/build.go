@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"only4.fun/backend/internal/config"
+	"only4.fun/backend/internal/execenv"
 )
 
 // Job adalah satu permintaan deployment.
@@ -40,6 +41,12 @@ func New(cfg config.BuildConfig) *Builder {
 
 func (b *Builder) Mode() string { return "local" }
 
+// envHome is the only HOME exposed to build scripts. It lives under CACHE_DIR
+// so npm caches do not depend on the server process's real home directory.
+func (b *Builder) envHome() string {
+	return filepath.Join(b.cfg.CacheDir, "home")
+}
+
 // Build menjalankan seluruh pipeline dan mengembalikan folder hasil build di SitesDir.
 func (b *Builder) Build(ctx context.Context, job Job, logf func(string)) (string, error) {
 	if err := validateSubdomain(job.Subdomain); err != nil {
@@ -59,6 +66,9 @@ func (b *Builder) Build(ctx context.Context, job Job, logf func(string)) (string
 	if err := os.MkdirAll(b.cfg.SitesDir, 0o755); err != nil {
 		return "", fmt.Errorf("failed to prepare sites dir: %w", err)
 	}
+	if err := execenv.EnsureHome(b.envHome()); err != nil {
+		return "", fmt.Errorf("failed to prepare build home: %w", err)
+	}
 
 	workDir, err := os.MkdirTemp(b.cfg.CacheDir, fmt.Sprintf("build-%s-", job.ProjectID))
 	if err != nil {
@@ -73,14 +83,19 @@ func (b *Builder) Build(ctx context.Context, job Job, logf func(string)) (string
 	}
 
 	// Log commit details for debugging redeploy / source changes.
-	if out, err := exec.CommandContext(ctx, "git", "-C", workDir, "rev-parse", "HEAD").Output(); err == nil {
-		logf(fmt.Sprintf("git commit: %s", strings.TrimSpace(string(out))))
-	}
-	if out, err := exec.CommandContext(ctx, "git", "-C", workDir, "branch", "--show-current").Output(); err == nil {
-		logf(fmt.Sprintf("git branch: %s", strings.TrimSpace(string(out))))
-	}
-	if out, err := exec.CommandContext(ctx, "git", "-C", workDir, "log", "--oneline", "-1").Output(); err == nil {
-		logf(fmt.Sprintf("git last commit: %s", strings.TrimSpace(string(out))))
+	for _, info := range []struct {
+		label string
+		args  []string
+	}{
+		{"git commit", []string{"-C", workDir, "rev-parse", "HEAD"}},
+		{"git branch", []string{"-C", workDir, "branch", "--show-current"}},
+		{"git last commit", []string{"-C", workDir, "log", "--oneline", "-1"}},
+	} {
+		cmd := exec.CommandContext(ctx, "git", info.args...)
+		cmd.Env = execenv.Base(b.envHome())
+		if out, err := cmd.Output(); err == nil {
+			logf(fmt.Sprintf("%s: %s", info.label, strings.TrimSpace(string(out))))
+		}
 	}
 
 	outputDir, err := b.runBuild(ctx, job, workDir, logf)
@@ -119,7 +134,7 @@ func (b *Builder) clone(ctx context.Context, job Job, workDir string, logf func(
 			_ = os.MkdirAll(workDir, 0o755)
 		}
 		cmd := exec.CommandContext(ctx, "git", args...)
-		cmd.Env = append(append(os.Environ(), "GIT_TERMINAL_PROMPT=0"), authEnv...)
+		cmd.Env = append(append(execenv.Base(b.envHome()), "GIT_TERMINAL_PROMPT=0"), authEnv...)
 		out, err = cmd.CombinedOutput()
 		if err == nil {
 			return nil
@@ -228,7 +243,7 @@ func (b *Builder) runBuild(ctx context.Context, job Job, workDir string, logf fu
 func (b *Builder) exec(ctx context.Context, job Job, workDir, command string, logf func(string)) error {
 	cmd := exec.CommandContext(ctx, "sh", "-lc", command)
 	cmd.Dir = workDir
-	env := append(os.Environ(), "CI=1")
+	env := execenv.Base(b.envHome())
 	for k, v := range job.EnvVars {
 		env = append(env, k+"="+v)
 	}

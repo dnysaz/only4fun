@@ -12,6 +12,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"only4.fun/backend/internal/execenv"
 )
 
 const (
@@ -168,9 +170,13 @@ func (pm *ProcessManager) startProcess(subdomain, serverEntry string) (*Process,
 		return nil, err
 	}
 
-	// Buat command
+	// Buat command. SSR menjalankan source milik user, jadi jangan pernah
+	// meneruskan environment server yang berisi secret.
+	if err := execenv.EnsureHome(""); err != nil {
+		return nil, fmt.Errorf("failed to prepare SSR home: %w", err)
+	}
 	cmd := exec.Command("node", serverEntry)
-	cmd.Env = append(os.Environ(), fmt.Sprintf("PORT=%d", port))
+	cmd.Env = append(execenv.Base(""), fmt.Sprintf("PORT=%d", port))
 	cmd.Dir = filepath.Dir(serverEntry)
 
 	// Redirect output ke log

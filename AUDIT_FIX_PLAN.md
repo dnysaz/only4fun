@@ -16,7 +16,7 @@ Verifikasi standar: `cd backend && go test ./... -count=1`, `go vet ./...`, `cd 
 
 | ID | Temuan | File utama | Status | Catatan |
 |---|---|---|---|---|
-| C1 | Build/SSR mewarisi semua secret server lewat `os.Environ()` | `backend/internal/builder/build.go`, `backend/internal/server/process_manager.go` | Pending | Ganti dengan env allowlist minimal. |
+| C1 | Build/SSR mewarisi semua secret server lewat `os.Environ()` | `backend/internal/builder/build.go`, `backend/internal/server/process_manager.go` | Done | `internal/execenv` hanya mengirim `PATH`, `HOME`, `TMPDIR`, cache npm, dan `CI`; dipakai untuk git/build/SSR. Isolasi container/VM tetap rekomendasi operasional. |
 | C2 | ZIP authenticated bisa menyimpan `server.js` dan memicu SSR/RCE | `backend/internal/handler/upload.go`, `backend/internal/server/sites.go` | Pending | Validasi static-only juga di upload. |
 
 ## High
@@ -78,3 +78,4 @@ Verifikasi standar: `cd backend && go test ./... -count=1`, `go vet ./...`, `cd 
 ## Log Progres
 
 - 2026-11-27 — Audit awal selesai; note dibuat. Belum ada perbaikan kode.
+- 2026-11-27 — C1 done: env build/SSR diputus dari secret server; test + vet lulus.
