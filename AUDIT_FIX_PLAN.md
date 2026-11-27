@@ -23,7 +23,7 @@ Verifikasi standar: `cd backend && go test ./... -count=1`, `go vet ./...`, `cd 
 
 | ID | Temuan | File utama | Status | Catatan |
 |---|---|---|---|---|
-| H1 | Token GitHub revoked hanya dicek di `/auth/me`, bukan middleware | `backend/internal/handler/auth_middleware.go`, `auth.go` | Pending | Validasi terpusat + cache singkat. |
+| H1 | Token GitHub revoked hanya dicek di `/auth/me`, bukan middleware | `backend/internal/handler/auth_middleware.go`, `auth.go` | Done | `githubTokenValid` dipakai AuthMiddleware + GetMe, cache 60 detik, session revoked dihapus dan cookie dibersihkan. |
 | H2 | Origin guard mempercayai `Host` request | `backend/internal/server/csrf.go` | Pending | Hapus shortcut Host. |
 | H3 | Trusted proxy / IP mismatch merusak rate limit & cookie Secure | `backend/internal/server/router.go`, `ratelimit.go` | Pending | Konfigurasi trusted proxy. |
 | H4 | `http.Server` tanpa timeout | `backend/internal/server/server.go` | Pending | Tambah read/idle/write timeout. |
@@ -46,7 +46,7 @@ Verifikasi standar: `cd backend && go test ./... -count=1`, `go vet ./...`, `cd 
 | M5 | Nil panic saat housekeeping release | `backend/internal/builder/build.go` | Pending | Cek error `Info()`. |
 | M6 | Metrics counters data race | `backend/internal/server/metrics.go`, `middleware.go` | Pending | Atomic/mutex. |
 | M7 | Foreign keys tidak aktif untuk DB baru | `backend/internal/database/init.go` | Pending | `PRAGMA foreign_keys=ON`. |
-| M8 | GitHub 403 dianggap token revoked | `backend/internal/handler/auth.go` | Pending | Hanya 401 yang fatal. |
+| M8 | GitHub 403 dianggap token revoked | `backend/internal/handler/auth.go` | Done | Sekaligus terselesaikan di H1: hanya 401 yang fatal; 403 (rate limit) dianggap valid. |
 | M9 | Clone publik tanpa kuota ukuran repo | `backend/internal/handler/instant.go` | Pending | Cek size + disk quota. |
 | M10 | ZIP index resolution terlalu kaku | `backend/internal/handler/upload.go` | Pending | Cari root berisi `index.html`. |
 | M11 | Webhook secret dibuat sebelum HMAC terverifikasi | `backend/internal/handler/webhook.go` | Pending | Hanya baca secret. |
@@ -80,3 +80,4 @@ Verifikasi standar: `cd backend && go test ./... -count=1`, `go vet ./...`, `cd 
 - 2026-11-27 — Audit awal selesai; note dibuat. Belum ada perbaikan kode.
 - 2026-11-27 — C1 done: env build/SSR diputus dari secret server; test + vet lulus.
 - 2026-11-27 — C2 done: ZIP tidak bisa memicu SSR; test + vet lulus.
+- 2026-11-27 — H1 done: revoked GitHub token dicek di middleware (cache 60s); M8 juga tertutup (403 tidak logout).

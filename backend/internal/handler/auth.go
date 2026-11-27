@@ -251,33 +251,6 @@ func (h *AuthHandler) sessionFromRequest(c *gin.Context) (*database.Session, boo
 	return session, true
 }
 
-// githubTokenValid memastikan token GitHub masih diterima. Token yang dicabut
-// membuat semua fitur GitHub (daftar repo, clone) gagal dengan 502; lebih baik
-// sesi dinyatakan habis lebih awal dan user diminta login lagi.
-func (h *AuthHandler) githubTokenValid(token string) bool {
-	// Sesi demo/dev sengaja dibuat tanpa token GitHub.
-	if token == "" {
-		return true
-	}
-	base := strings.TrimRight(h.githubAPIBase, "/")
-	if base == "" {
-		base = defaultGitHubAPIBase
-	}
-	req, err := http.NewRequest(http.MethodGet, base+"/user", nil)
-	if err != nil {
-		return true
-	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Accept", "application/vnd.github+json")
-	resp, err := (&http.Client{Timeout: 8 * time.Second}).Do(req)
-	if err != nil {
-		// GitHub sedang tidak bisa dijangkau: jangan log out user karena gangguan jaringan.
-		return true
-	}
-	defer resp.Body.Close()
-	return resp.StatusCode != http.StatusUnauthorized && resp.StatusCode != http.StatusForbidden
-}
-
 // GetMe mengembalikan info user yang sedang login.
 func (h *AuthHandler) GetMe(c *gin.Context) {
 	userID, ok := GetUserID(c)
@@ -290,7 +263,7 @@ func (h *AuthHandler) GetMe(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
 	}
-	if session, ok := h.sessionFromRequest(c); !ok || !h.githubTokenValid(session.Token) {
+	if session, ok := h.sessionFromRequest(c); !ok || !githubTokenValid(session.Token, h.githubAPIBase) {
 		if ok {
 			_ = h.sessionStore.DeleteByID(session.ID)
 		}

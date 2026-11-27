@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -84,5 +85,47 @@ func TestGetMeValidGitHubTokenAndDevSession(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			t.Fatalf("GetMe(%q) = %d, ingin 200: %s", sessionID, rec.Code, rec.Body.String())
 		}
+	}
+}
+
+func callAuthMiddleware(t *testing.T, apiBase, sessionID string) *httptest.ResponseRecorder {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+	store := newTestStore(t)
+	sessions := database.NewSessionStore(store.db)
+	userID := store.createUser(t, "alice")
+	if _, err := sessions.Create(userID, sessionID, strings.TrimSuffix(sessionID, "-session"), time.Now().Add(time.Hour)); err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/projects", nil)
+	c.Request.AddCookie(&http.Cookie{Name: sessionCookieName, Value: sessionID})
+	AuthMiddlewareWithGitHubAPI(sessions, apiBase)(c)
+	return rec
+}
+
+func TestAuthMiddlewareRevokedTokenEndsSession(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer upstream.Close()
+
+	rec := callAuthMiddleware(t, upstream.URL, "middleware-revoked-session")
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("middleware = %d, ingin 401: %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestAuthMiddlewareAllowsRateLimitedToken(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer upstream.Close()
+
+	rec := callAuthMiddleware(t, upstream.URL, "middleware-ratelimited-session")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("middleware 403 = %d, ingin 200: %s", rec.Code, rec.Body.String())
 	}
 }
