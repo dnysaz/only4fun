@@ -4,7 +4,7 @@
   import { Loading } from './loading.ts';
   import ConfirmDialog from './ConfirmDialog.svelte';
   import { sanitize, validateName } from './subdomain.js';
-  import { isValidGitHubRepoUrl } from './github.js';
+  import { isValidGitHubRepoUrl, parseGitHubRepoUrl } from './github.js';
   import { buildTreeRows, normalizeTreePaths } from './fileTree.js';
   import { listZipPaths } from './zipTree.js';
   import { session, signOut } from './session.svelte.js';
@@ -172,10 +172,13 @@
     };
   });
 
-  // File tree preview, same helper used by the instant launch page.
+  // File tree preview. Launchpad is signed in, so use the authenticated tree
+  // endpoint: it supports private repos and is not blocked by the edge challenge
+  // applied to the public instant POST.
   $effect(() => {
     const source = tab === 'repo' ? repoUrl.trim() : file;
-    if (!source || (tab === 'repo' && !isValidGitHubRepoUrl(source))) {
+    const parsed = tab === 'repo' ? parseGitHubRepoUrl(source) : null;
+    if (!source || (tab === 'repo' && !parsed)) {
       treeToken++;
       tree = emptyTree;
       return;
@@ -185,7 +188,10 @@
     tree = { paths: [], loading: true, error: '', truncated: false };
     const timer = setTimeout(async () => {
       try {
-        const data = tab === 'zip' ? await listZipPaths(file) : await api.instantRepoTree(source);
+        const data =
+          tab === 'zip'
+            ? await listZipPaths(file)
+            : await api.githubRepoTree(parsed.owner, parsed.repo);
         if (token !== treeToken) return;
         tree = {
           paths: data?.paths ?? [],

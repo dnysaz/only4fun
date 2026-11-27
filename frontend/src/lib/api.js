@@ -110,6 +110,10 @@ export const api = {
   checkSubdomain: (name) => request(`/api/check-subdomain?name=${encodeURIComponent(name)}`),
   listGitHubRepos: ({ page = 1, perPage = 100, signal } = {}) =>
     request(`/api/github/repos?page=${page}&per_page=${perPage}`, { signal }),
+  // Launchpad preview: authenticated GET, works for private repos and avoids
+  // the edge challenge applied to the public instant tree POST.
+  githubRepoTree: (owner, repo) =>
+    request(`/api/github/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/tree`),
 
   // Instant deploy: publik, tanpa sesi, static HTML/CSS/JS saja.
   instantAddress: () => request('/api/instant/address', { method: 'POST' }),

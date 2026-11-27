@@ -1,10 +1,14 @@
 package handler
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -96,6 +100,114 @@ func (h *GitHubHandler) GetRepoContents(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"contents": result})
+}
+
+// GetRepoTree mengembalikan daftar file repo secara rekursif untuk halaman
+// Launchpad. Endpoint ini memakai token sesi user, jadi repo private ikut
+// terlihat dan request tidak bergantung pada kuota anonim GitHub API.
+func (h *GitHubHandler) GetRepoTree(c *gin.Context) {
+	session, ok := h.sessionFromRequest(c)
+	if !ok || session == nil || session.Token == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid session"})
+		return
+	}
+
+	owner := c.Param("owner")
+	repo := c.Param("repo")
+	if !validGitHubName(owner) || !validGitHubName(repo) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid owner or repo"})
+		return
+	}
+
+	base := h.apiBase
+	if base == "" {
+		base = defaultGitHubAPIBase
+	}
+
+	var meta struct {
+		DefaultBranch string `json:"default_branch"`
+	}
+	if err := h.repoJSON(c.Request.Context(), base+"/repos/"+owner+"/"+repo, session.Token, &meta); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+	if meta.DefaultBranch == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "this repository has no default branch to preview"})
+		return
+	}
+
+	var tree struct {
+		Truncated bool `json:"truncated"`
+		Tree      []struct {
+			Path string `json:"path"`
+			Type string `json:"type"`
+		} `json:"tree"`
+	}
+	treeURL := base + "/repos/" + owner + "/" + repo + "/git/trees/" +
+		url.PathEscape(meta.DefaultBranch) + "?recursive=1"
+	if err := h.repoJSON(c.Request.Context(), treeURL, session.Token, &tree); err != nil {
+		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
+		return
+	}
+
+	paths := make([]string, 0, len(tree.Tree))
+	truncated := tree.Truncated
+	for _, item := range tree.Tree {
+		if item.Type != "blob" {
+			continue
+		}
+		path := cleanInstantTreePath(item.Path)
+		if path == "" {
+			continue
+		}
+		if len(paths) >= instantTreeLimit {
+			truncated = true
+			break
+		}
+		paths = append(paths, path)
+	}
+	if len(paths) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no files were found in this repository"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"paths": paths, "truncated": truncated})
+}
+
+// repoJSON mengambil JSON dari GitHub dengan token user dan membatasi ukuran
+// respons. Bedanya dengan instant.githubJSON: endpoint ini tidak dipakai publik.
+func (h *GitHubHandler) repoJSON(ctx context.Context, endpoint, token string, out any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return errors.New("failed to create the GitHub request")
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("User-Agent", "only4fun-launchpad")
+	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
+
+	resp, err := (&http.Client{Timeout: 15 * time.Second}).Do(req)
+	if err != nil {
+		return errors.New("failed to reach GitHub")
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+	case http.StatusNotFound:
+		return errors.New("repository not found or you do not have access to it")
+	case http.StatusUnauthorized:
+		return errors.New("your GitHub session expired. Please sign in again")
+	case http.StatusForbidden:
+		return errors.New("GitHub rejected the preview request (403). Check repository access or try again in a minute")
+	default:
+		return fmt.Errorf("GitHub rejected the request (status %d)", resp.StatusCode)
+	}
+
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(out); err != nil {
+		return errors.New("failed to read the GitHub response")
+	}
+	return nil
 }
 
 // GetRepoReadme mengambil isi README repo dari GitHub API.
