@@ -241,6 +241,23 @@ func (s *ProjectStore) GetByRepoURL(repoURL string) ([]*Project, error) {
 	return projects, err
 }
 
+// GetWebhookSecret hanya membaca secret yang sudah ada. Dipakai jalur
+// webhook publik: request yang belum terverifikasi tidak boleh membuat secret.
+func (s *ProjectStore) GetWebhookSecret(projectID string) (string, error) {
+	var stored string
+	if err := s.db.Get(&stored, `SELECT webhook_secret FROM projects WHERE id = ?`, projectID); err != nil {
+		return "", err
+	}
+	if stored == "" {
+		return "", nil
+	}
+	plain, err := secure.Decrypt(stored)
+	if err != nil {
+		return "", nil
+	}
+	return plain, nil
+}
+
 // EnsureWebhookSecret mengembalikan secret webhook project, membuatnya bila
 // project lama belum punya. Secret disimpan terenkripsi.
 func (s *ProjectStore) EnsureWebhookSecret(projectID string) (string, error) {

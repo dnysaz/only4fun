@@ -102,8 +102,10 @@ func (h *ProjectHandler) HandleGitHubWebhook(c *gin.Context) {
 	signature := c.GetHeader("X-Hub-Signature-256")
 	var project *database.Project
 	for _, p := range projects {
-		secret, err := h.projectStore.EnsureWebhookSecret(p.ID)
-		if err != nil {
+		// Jangan pernah membuat secret di jalur publik: hanya baca yang sudah
+		// dibuat pemilik project lewat halaman webhook terotentikasi.
+		secret, err := h.projectStore.GetWebhookSecret(p.ID)
+		if err != nil || secret == "" {
 			continue
 		}
 		if validWebhookSignature(secret, body, signature) {
