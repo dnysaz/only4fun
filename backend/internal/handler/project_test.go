@@ -3,7 +3,15 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/gin-gonic/gin"
+
+	"only4.fun/backend/internal/database"
 )
 
 // TestCreateProjectRejectsSameRepo memastikan project baru dari repo yang sudah
@@ -137,5 +145,57 @@ func TestValidateSubdomainBlockedWordsExactMatch(t *testing.T) {
 		if err := validateSubdomain(name); err != nil {
 			t.Errorf("validateSubdomain(%q) ingin boleh, dapat %v", name, err)
 		}
+	}
+}
+
+func TestClearDeploymentsCleansUnusedReleases(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := newTestStore(t)
+	userID := store.createUser(t, "alice")
+	projectID := store.createProject(t, userID, "https://github.com/alice/site", "clear-site", nil)
+	deployments := database.NewDeploymentStore(store.db)
+	dep, err := deployments.Create(projectID, "success", "build ok")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := deployments.SetRelease(dep.ID, "old-release"); err != nil {
+		t.Fatal(err)
+	}
+
+	sitesDir := t.TempDir()
+	releasesDir := filepath.Join(sitesDir, ".releases", "clear-site")
+	for _, name := range []string{"old-release", "active-release"} {
+		dir := filepath.Join(releasesDir, name)
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "index.html"), []byte(name), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	target := filepath.Join(sitesDir, "clear-site")
+	if err := os.Symlink(filepath.Join(releasesDir, "active-release"), target); err != nil {
+		t.Fatal(err)
+	}
+
+	handler := NewProjectHandler(store.projects, store.users, nil, deployments, nil, nil, nil, sitesDir, "")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodDelete, "/api/projects/"+projectID+"/deployments", strings.NewReader(""))
+	c.Params = gin.Params{{Key: "id", Value: projectID}}
+	c.Set("userID", userID)
+	handler.ClearDeployments(c)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("ClearDeployments = %d: %s", rec.Code, rec.Body.String())
+	}
+
+	if list, err := deployments.GetByProjectID(projectID); err != nil || len(list) != 0 {
+		t.Fatalf("history should be empty: list=%d err=%v", len(list), err)
+	}
+	if _, err := os.Stat(filepath.Join(releasesDir, "old-release")); !os.IsNotExist(err) {
+		t.Fatalf("unused release still exists: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(releasesDir, "active-release", "index.html")); err != nil {
+		t.Fatalf("active release was removed: %v", err)
 	}
 }

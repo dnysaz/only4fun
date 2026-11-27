@@ -64,6 +64,43 @@ func TestPublishSwapsReleaseAndKeepsBackup(t *testing.T) {
 	}
 }
 
+func TestCleanUnusedReleasesKeepsActiveRelease(t *testing.T) {
+	sitesDir := t.TempDir()
+	target := filepath.Join(sitesDir, "demo")
+	releasesDir := filepath.Join(sitesDir, ".releases", "demo")
+	active := filepath.Join(releasesDir, "active")
+	old := filepath.Join(releasesDir, "old")
+	writeSite(t, active, "active")
+	writeSite(t, old, "old")
+	if err := os.Symlink(active, target); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := CleanUnusedReleases(target); err != nil {
+		t.Fatalf("CleanUnusedReleases: %v", err)
+	}
+	if got := readIndex(t, target); got != "active" {
+		t.Fatalf("active site = %q, want %q", got, "active")
+	}
+	if _, err := os.Stat(filepath.Join(old, "index.html")); !os.IsNotExist(err) {
+		t.Fatalf("unused release still exists: %v", err)
+	}
+}
+
+func TestCleanUnusedReleasesWithoutSymlinkRemovesAll(t *testing.T) {
+	sitesDir := t.TempDir()
+	target := filepath.Join(sitesDir, "static")
+	release := filepath.Join(sitesDir, ".releases", "static", "old")
+	writeSite(t, release, "old")
+
+	if err := CleanUnusedReleases(target); err != nil {
+		t.Fatalf("CleanUnusedReleases: %v", err)
+	}
+	if _, err := os.Stat(release); !os.IsNotExist(err) {
+		t.Fatalf("release should be removed when no symlink is active: %v", err)
+	}
+}
+
 // Entry rilis yang rusak (symlink menggantung) tidak boleh membuat panic saat
 // publish mencari rilis sebelumnya.
 func TestPublishIgnoresBrokenReleaseEntry(t *testing.T) {

@@ -587,14 +587,22 @@ func (h *ProjectHandler) ClearDeployments(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if h.deploymentStore == nil {
-		c.JSON(http.StatusOK, gin.H{"cleared": true})
-		return
+	if h.deploymentStore != nil {
+		if err := h.deploymentStore.ClearByProjectID(project.ID); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to clear deployment history"})
+			return
+		}
 	}
-	if err := h.deploymentStore.ClearByProjectID(project.ID); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to clear deployment history"})
-		return
+
+	// History sudah kosong, jadi rilis lama tidak bisa dipakai untuk rollback.
+	// Hapus semua kecuali rilis yang sedang disajikan (symlink situs aktif).
+	if h.sitesDir != "" && validateSubdomain(project.Subdomain) == nil {
+		target := filepath.Join(h.sitesDir, project.Subdomain)
+		if err := builder.CleanUnusedReleases(target); err != nil {
+			log.Printf("failed to clean unused releases for %s: %v", project.Subdomain, err)
+		}
 	}
+
 	c.JSON(http.StatusOK, gin.H{"cleared": true})
 }
 

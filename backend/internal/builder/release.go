@@ -24,6 +24,39 @@ func CurrentReleaseName(target string) (string, error) {
 	return filepath.Base(resolved), nil
 }
 
+// CleanUnusedReleases menghapus folder rilis yang tidak lagi dipakai, kecuali
+// rilis yang saat ini menjadi target symlink situs. Dipanggil setelah history
+// deployment dihapus: rilis lama tidak bisa di-rollback lagi, tapi situs yang
+// sedang live harus tetap utuh.
+func CleanUnusedReleases(target string) error {
+	active, err := CurrentReleaseName(target)
+	if err != nil {
+		active = "" // Situs bukan symlink: tidak ada rilis yang dipakai.
+	}
+	parent := filepath.Dir(target)
+	releasesDir := filepath.Join(parent, ".releases", filepath.Base(target))
+	entries, err := os.ReadDir(releasesDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if name == active || name != filepath.Base(name) || strings.Contains(name, "..") {
+			continue
+		}
+		if err := os.RemoveAll(filepath.Join(releasesDir, name)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // ActivateRelease mengarahkan symlink situs ke folder rilis lama sehingga
 // deployment sebelumnya bisa dipromosikan kembali (rollback).
 //
