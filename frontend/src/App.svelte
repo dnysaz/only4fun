@@ -7,10 +7,6 @@
   import Features from './lib/Features.svelte';
   import Cta from './lib/Cta.svelte';
   import Footer from './lib/Footer.svelte';
-  import Dashboard from './lib/Dashboard.svelte';
-  import Deploy from './lib/Deploy.svelte';
-  import ProjectDetail from './lib/ProjectDetail.svelte';
-  import InstantDeploy from './lib/InstantDeploy.svelte';
   import InfoPage from './lib/InfoPage.svelte';
   import { getRoute, navigation } from './lib/router.svelte.js';
   import { Loading } from './lib/loading.ts';
@@ -19,6 +15,55 @@
   import { logout } from './lib/authActions.js';
   import { updateSeo } from './lib/seo.js';
   import { watchPageVisibility } from './lib/visibility.svelte.js';
+
+  // Halaman workspace/component berat dimuat sesuai route. Homepage/info
+  // tetap statis supaya first paint cepat.
+  const routeLoaders = {
+    '/launchpad': () => import('./lib/Dashboard.svelte'),
+    '/deploy': () => import('./lib/Deploy.svelte'),
+    '/instant': () => import('./lib/InstantDeploy.svelte'),
+  };
+  let ActiveRoute = $state(null);
+  let loadToken = 0;
+
+  let route = $derived(getRoute());
+  let workspaceRoute = $derived(
+    route === '/launchpad' ||
+      route === '/deploy' ||
+      route === '/instant' ||
+      route.startsWith('/project/'),
+  );
+  let infoPage = $derived(getInfoPage(route));
+
+  $effect(() => {
+    const current = route;
+    const loader =
+      routeLoaders[current] ??
+      (current.startsWith('/project/') ? () => import('./lib/ProjectDetail.svelte') : null);
+    const token = ++loadToken;
+    let cancelled = false;
+
+    if (!loader) {
+      ActiveRoute = null;
+      return;
+    }
+
+    ActiveRoute = null;
+    loader()
+      .then((module) => {
+        if (cancelled || token !== loadToken) return;
+        ActiveRoute = module.default;
+      })
+      .catch((error) => {
+        if (cancelled || token !== loadToken) return;
+        console.error('Failed to load route component', error);
+        ActiveRoute = null;
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  });
 
   onMount(() => {
     const stopVisibility = watchPageVisibility();
@@ -43,26 +88,23 @@
 
   let lastRoute = '';
   $effect(() => {
-    const route = getRoute();
     updateSeo(route);
     if (lastRoute && route !== lastRoute) revalidateSession();
     lastRoute = route;
   });
 </script>
 
-{#if getRoute() === '/launchpad'}
-  <Dashboard />
-{:else if getRoute() === '/deploy'}
-  <Deploy />
-{:else if getRoute() === '/instant'}
-  <InstantDeploy />
-{:else if getRoute().startsWith('/project/')}
-  <ProjectDetail />
-{:else if getInfoPage(getRoute())}
+{#if workspaceRoute}
+  {#if ActiveRoute}
+    <ActiveRoute />
+  {:else}
+    <div class="route-splash"><Loading label="loading page…" size={30} /></div>
+  {/if}
+{:else if infoPage}
   <div class="wrap">
     <Nav onSignOut={logout} />
   </div>
-  <InfoPage page={getRoute()} />
+  <InfoPage page={route} />
 {:else}
   <div class="wrap">
     <Nav onSignOut={logout} />
@@ -84,6 +126,12 @@
 {/if}
 
 <style>
+  .route-splash {
+    display: grid;
+    place-items: center;
+    min-height: 70vh;
+  }
+
   .route-loading {
     position: fixed;
     left: 50%;
