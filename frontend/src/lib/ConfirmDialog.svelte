@@ -1,4 +1,7 @@
 <script>
+  import { tick } from 'svelte';
+  import { trapTab } from './focusTrap.js';
+
   let {
     open = false,
     title = 'Are you sure?',
@@ -10,16 +13,34 @@
     onCancel = () => {},
   } = $props();
 
+  // Read only inside async callbacks/event handlers so the focus effect
+  // depends on `open` alone, not on bind:this updates.
   let confirmButton = $state(null);
+  let dialog = $state(null);
 
   $effect(() => {
-    if (open) confirmButton?.focus();
+    if (!open) return;
+    const opener = document.activeElement;
+    let cancelled = false;
+
+    tick().then(() => {
+      if (!cancelled) (confirmButton ?? dialog)?.focus?.();
+    });
+
+    return () => {
+      cancelled = true;
+      if (opener?.isConnected) queueMicrotask(() => opener.focus());
+    };
   });
 
   function keydown(event) {
-    if (!open || busy || event.key !== 'Escape') return;
-    event.preventDefault();
-    onCancel();
+    if (!open) return;
+    if (event.key === 'Escape' && !busy) {
+      event.preventDefault();
+      onCancel();
+      return;
+    }
+    trapTab(event, dialog);
   }
 </script>
 
@@ -37,6 +58,8 @@
 
     <div
       class="dialog"
+      bind:this={dialog}
+      tabindex="-1"
       role="dialog"
       aria-modal="true"
       aria-labelledby="confirm-title"
@@ -90,6 +113,10 @@
     border: 2px solid var(--line);
     border-radius: 28px;
     background: var(--bg);
+  }
+
+  .dialog:focus {
+    outline: none;
   }
 
   .icon {

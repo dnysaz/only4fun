@@ -15,6 +15,11 @@ const SCAN_EXT = /\.(?:html?|js|mjs|cjs|jsx|ts|tsx|vue|svelte)$/i;
 const MAX_SCAN_FILES = 40;
 const MAX_SCAN_BYTES = 160 * 1024;
 const MAX_TOTAL_SCAN_BYTES = 2 * 1024 * 1024;
+const MAX_CONCURRENT_SCANS = 2;
+
+let scanGeneration = 0;
+let activeScans = 0;
+const scanQueue = [];
 
 const FRAMEWORK_CONTENT = [
   /(?:from\s*|require\(\s*|import\(\s*)['"](?:react|react-dom|next(?:\/[\w.-]+)?|vue|nuxt|svelte|@sveltejs\/kit|@angular\/core|astro|preact|solid-js|ember-source|vite)['"]/i,
@@ -22,7 +27,46 @@ const FRAMEWORK_CONTENT = [
   /\b(?:ReactDOM\.createRoot|createRoot\(|new Vue\(|Vue\.createApp|SvelteComponent|_next\/static)/i,
 ];
 
-export async function listZipPaths(file) {
+function superseded() {
+  const error = new Error('ZIP scan superseded by a newer selection');
+  error.name = 'AbortError';
+  return error;
+}
+
+function ensureCurrent(token) {
+  if (token !== scanGeneration) throw superseded();
+}
+
+function pumpScans() {
+  while (activeScans < MAX_CONCURRENT_SCANS && scanQueue.length) {
+    const job = scanQueue.shift();
+    if (job.token !== scanGeneration) {
+      job.reject(superseded());
+      continue;
+    }
+    activeScans += 1;
+    Promise.resolve()
+      .then(job.task)
+      .then(job.resolve, job.reject)
+      .finally(() => {
+        activeScans -= 1;
+        pumpScans();
+      });
+  }
+}
+
+// Satu antrean kecil mencegah pembacaan ZIP bertumpuk. Setiap seleksi baru
+// menaikkan generation: pekerjaan lama yang masih antre/berjalan dibatalkan.
+export function listZipPaths(file) {
+  const token = ++scanGeneration;
+  return new Promise((resolve, reject) => {
+    scanQueue.push({ task: () => readZipPaths(file, token), token, resolve, reject });
+    pumpScans();
+  });
+}
+
+async function readZipPaths(file, token) {
+  ensureCurrent(token);
   if (!file || !/\.zip$/i.test(file.name)) {
     throw new Error('Choose a .zip file.');
   }
@@ -31,6 +75,7 @@ export async function listZipPaths(file) {
   }
 
   const buffer = await file.arrayBuffer();
+  ensureCurrent(token);
   const view = new DataView(buffer);
   const bytes = new Uint8Array(buffer);
   const eocd = findEndRecord(view);
@@ -72,6 +117,7 @@ export async function listZipPaths(file) {
   let truncated = false;
 
   for (let i = 0; i < entries && cursor + 46 <= view.byteLength; i++) {
+    if (i % 128 === 0) ensureCurrent(token);
     if (view.getUint32(cursor, true) !== CENTRAL_ENTRY_SIGNATURE) break;
 
     const method = view.getUint16(cursor + 10, true);
@@ -104,7 +150,9 @@ export async function listZipPaths(file) {
     throw new Error('No files were found in this ZIP.');
   }
 
-  const signals = await scanForFrameworkSignals(view, bytes, scanCandidates, decoder);
+  ensureCurrent(token);
+  const signals = await scanForFrameworkSignals(view, bytes, scanCandidates, decoder, token);
+  ensureCurrent(token);
   return { paths, truncated, signals };
 }
 
@@ -127,12 +175,13 @@ function cleanName(raw) {
 // Membaca maksimal 40 file teks kecil dari arsip untuk mencari petunjuk
 // framework (import react/vue/svelte/dll). Gagal baca satu entri diabaikan;
 // pemeriksaan berdasarkan nama file tetap berjalan.
-async function scanForFrameworkSignals(view, bytes, candidates, decoder) {
+async function scanForFrameworkSignals(view, bytes, candidates, decoder, token) {
   if (typeof DecompressionStream === 'undefined') return [];
 
   const signals = [];
   let total = 0;
   for (const item of candidates.slice(0, MAX_SCAN_FILES)) {
+    ensureCurrent(token);
     if (total >= MAX_TOTAL_SCAN_BYTES) break;
     const local = item.localOffset;
     if (!Number.isSafeInteger(local) || local < 0 || local + 30 > view.byteLength) continue;
@@ -152,6 +201,7 @@ async function scanForFrameworkSignals(view, bytes, candidates, decoder) {
       } else if (item.method !== 0) {
         continue;
       }
+      ensureCurrent(token);
       if (raw.byteLength > MAX_SCAN_BYTES) continue;
       total += raw.byteLength;
 
@@ -163,7 +213,8 @@ async function scanForFrameworkSignals(view, bytes, candidates, decoder) {
           break;
         }
       }
-    } catch {
+    } catch (err) {
+      if (err?.name === 'AbortError') throw err;
       // Entri yang tidak bisa dibuka tidak membuat proses gagal.
     }
   }

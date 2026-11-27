@@ -2,6 +2,7 @@
 // jadi credentials harus selalu disertakan.
 
 const BASE = import.meta.env.VITE_API_BASE ?? '';
+const DEFAULT_TIMEOUT_MS = 20_000;
 
 export class ApiError extends Error {
   constructor(message, status = 0) {
@@ -11,8 +12,24 @@ export class ApiError extends Error {
   }
 }
 
-async function request(path, { method = 'GET', body, signal } = {}) {
-  const init = { method, credentials: 'include', signal, headers: {} };
+async function request(path, { method = 'GET', body, signal, timeoutMs = DEFAULT_TIMEOUT_MS } = {}) {
+  const controller = new AbortController();
+  let timedOut = false;
+
+  // Caller-provided signals still abort the real request and surface AbortError.
+  const relayAbort = () => controller.abort();
+  if (signal?.aborted) relayAbort();
+  else signal?.addEventListener('abort', relayAbort, { once: true });
+
+  const timer =
+    timeoutMs > 0
+      ? setTimeout(() => {
+          timedOut = true;
+          controller.abort();
+        }, timeoutMs)
+      : null;
+
+  const init = { method, credentials: 'include', signal: controller.signal, headers: {} };
 
   if (body instanceof FormData) {
     init.body = body;
@@ -21,22 +38,28 @@ async function request(path, { method = 'GET', body, signal } = {}) {
     init.headers['Content-Type'] = 'application/json';
   }
 
-  let res;
   try {
-    res = await fetch(BASE + path, init);
-  } catch (err) {
-    if (err?.name === 'AbortError') throw err;
-    throw new ApiError('Could not reach the API. Is the backend running?', 0);
+    let res;
+    try {
+      res = await fetch(BASE + path, init);
+    } catch (err) {
+      if (err?.name === 'AbortError' && !timedOut) throw err;
+      if (timedOut) throw new ApiError('The request took too long. Please try again.', 0);
+      throw new ApiError('Could not reach the API. Is the backend running?', 0);
+    }
+
+    const isJson = (res.headers.get('content-type') ?? '').includes('application/json');
+    const data = isJson ? await res.json().catch(() => null) : null;
+
+    if (!res.ok) {
+      throw new ApiError(data?.error ?? `Request failed (${res.status})`, res.status);
+    }
+
+    return data;
+  } finally {
+    if (timer) clearTimeout(timer);
+    signal?.removeEventListener('abort', relayAbort);
   }
-
-  const isJson = (res.headers.get('content-type') ?? '').includes('application/json');
-  const data = isJson ? await res.json().catch(() => null) : null;
-
-  if (!res.ok) {
-    throw new ApiError(data?.error ?? `Request failed (${res.status})`, res.status);
-  }
-
-  return data;
 }
 
 export const api = {
@@ -58,7 +81,8 @@ export const api = {
     const form = new FormData();
     form.append('subdomain', subdomain);
     form.append('file', file);
-    return request('/api/projects/upload', { method: 'POST', body: form });
+    // Upload sampai 100 MB butuh waktu lebih lama dari request biasa.
+    return request('/api/projects/upload', { method: 'POST', body: form, timeoutMs: 120_000 });
   },
   deleteProject: (id) => request(`/api/projects/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   redeploy: (id) => request(`/api/projects/${encodeURIComponent(id)}/deploy`, { method: 'POST' }),
@@ -92,13 +116,14 @@ export const api = {
     request('/api/instant/repo', {
       method: 'POST',
       body: { repo_url: repoUrl, subdomain, address_token: addressToken },
+      timeoutMs: 120_000,
     }),
   instantZip: (file, subdomain, addressToken) => {
     const form = new FormData();
     form.append('file', file);
     if (subdomain) form.append('subdomain', subdomain);
     if (addressToken) form.append('address_token', addressToken);
-    return request('/api/instant/zip', { method: 'POST', body: form });
+    return request('/api/instant/zip', { method: 'POST', body: form, timeoutMs: 120_000 });
   },
 
   loginUrl: (next = '/launchpad') => `${BASE}/auth/github/login?next=${encodeURIComponent(next)}`,

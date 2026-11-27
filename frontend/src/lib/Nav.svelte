@@ -1,8 +1,10 @@
 <script>
+  import { tick } from 'svelte';
   import Dots from './Dots.svelte';
   import { api } from './api.js';
   import { session } from './session.svelte.js';
   import { getRoute, navigate } from './router.svelte.js';
+  import { trapTab } from './focusTrap.js';
 
   let { onSignOut } = $props();
 
@@ -12,6 +14,8 @@
   let scrolled = $state(false);
   let isMobile = $state(window.matchMedia('(max-width: 700px)').matches);
   let drawerOpen = $state(false);
+  let drawer;
+  let drawerTrigger = null;
 
   $effect(() => {
     const query = window.matchMedia('(max-width: 700px)');
@@ -40,14 +44,31 @@
   $effect(() => {
     if (!drawerOpen) return;
     const previousOverflow = document.body.style.overflow;
-    function onKeydown(event) {
-      if (event.key === 'Escape') drawerOpen = false;
-    }
+    const opener = drawerTrigger;
+    let cancelled = false;
+
     document.body.style.overflow = 'hidden';
+    tick().then(() => {
+      if (cancelled) return;
+      const first = drawer?.querySelector('a[href], button:not([disabled])');
+      (first ?? drawer)?.focus?.();
+    });
+
+    function onKeydown(event) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeDrawer();
+        return;
+      }
+      trapTab(event, drawer);
+    }
+
     window.addEventListener('keydown', onKeydown);
     return () => {
+      cancelled = true;
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', onKeydown);
+      if (opener?.isConnected) queueMicrotask(() => opener.focus());
     };
   });
 
@@ -74,6 +95,7 @@
       return;
     }
     event.preventDefault();
+    if (!drawerOpen) drawerTrigger = event.currentTarget;
     drawerOpen = !drawerOpen;
   }
 
@@ -162,6 +184,7 @@
 <div
   class="account-drawer"
   class:open={drawerOpen}
+  bind:this={drawer}
   role="dialog"
   aria-modal="true"
   aria-label="Account menu"
