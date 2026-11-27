@@ -29,6 +29,32 @@ func TestRateLimitKeyPrefersUserID(t *testing.T) {
 	}
 }
 
+func TestRateLimitByIPIgnoresSpoofedSessionCookie(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.GET("/callback", RateLimitByIP(1, time.Minute), func(c *gin.Context) {
+		c.String(http.StatusOK, "ok")
+	})
+
+	call := func(cookie string) int {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/callback", nil)
+		req.RemoteAddr = "10.0.0.3:4321"
+		if cookie != "" {
+			req.AddCookie(&http.Cookie{Name: "session_id", Value: cookie})
+		}
+		r.ServeHTTP(w, req)
+		return w.Code
+	}
+
+	if got := call(""); got != http.StatusOK {
+		t.Fatalf("first request = %d, want 200", got)
+	}
+	if got := call("spoofed-session"); got != http.StatusTooManyRequests {
+		t.Fatalf("spoofed session should not reset the IP quota: got %d", got)
+	}
+}
+
 func TestRateLimitBlocksAfterLimitAndIsolatesUsers(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()

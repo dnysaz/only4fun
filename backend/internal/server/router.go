@@ -127,7 +127,9 @@ func NewRouter(cfg *config.Config, db *database.Database, worker *builder.Worker
 	auth := r.Group("/auth")
 	{
 		auth.GET("/github/login", RateLimit(30, time.Minute), authHandler.GetGitHubLoginURL)
-		auth.GET("/github/callback", authHandler.HandleGitHubCallback)
+		// Callback dipanggil GitHub tanpa session. Kuncinya IP, bukan cookie yang
+		// bisa diganti penyerang untuk mendapatkan kuota baru.
+		auth.GET("/github/callback", RateLimitByIP(20, time.Minute), authHandler.HandleGitHubCallback)
 	}
 
 	// Login dummy untuk pengembangan lokal; nonaktif kecuali DEV_LOGIN=true.
