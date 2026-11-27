@@ -88,6 +88,20 @@ func (s *SessionStore) Delete(sessionID string) error {
 	return err
 }
 
+// UserIDBySessionID mencari pemilik session tanpa memeriksa masa berlaku.
+// Dipakai saat logout semua session supaya session kedaluwarsa ikut terhapus.
+func (s *SessionStore) UserIDBySessionID(sessionID string) (string, error) {
+	var userID string
+	err := s.db.Get(&userID, `SELECT user_id FROM sessions WHERE session_id = ?`, secure.HashID(sessionID))
+	return userID, err
+}
+
+// DeleteAllByUserID menghapus semua session milik user (opsi logout semua).
+func (s *SessionStore) DeleteAllByUserID(userID string) error {
+	_, err := s.db.Exec(`DELETE FROM sessions WHERE user_id = ?`, userID)
+	return err
+}
+
 // DeleteByID menghapus session memakai primary key yang sudah tersimpan.
 // Dipakai saat token GitHub ternyata sudah dicabut, sehingga user harus login ulang.
 func (s *SessionStore) DeleteByID(id string) error {

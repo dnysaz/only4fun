@@ -147,3 +147,71 @@ func TestAuthMiddlewareAllowsRateLimitedToken(t *testing.T) {
 		t.Fatalf("middleware 403 = %d, ingin 200: %s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestLogoutAllSessions(t *testing.T) {
+	store := newTestStore(t)
+	sessions := database.NewSessionStore(store.db)
+	userID := store.createUser(t, "alice")
+	otherUserID := store.createUser(t, "bob")
+	for _, sessionID := range []string{"alice-one", "alice-two"} {
+		if _, err := sessions.Create(userID, sessionID, "", time.Now().Add(time.Hour)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := sessions.Create(otherUserID, "bob-one", "", time.Now().Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	handler, err := NewAuthHandler("id", "secret", "http://localhost/callback", "http://localhost", store.users, sessions)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	call := func(sessionID, body string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(rec)
+		c.Request = httptest.NewRequest(http.MethodPost, "/api/auth/logout", strings.NewReader(body))
+		c.Request.Header.Set("Content-Type", "application/json")
+		c.Request.AddCookie(&http.Cookie{Name: sessionCookieName, Value: sessionID})
+		handler.Logout(c)
+		return rec
+	}
+
+	if rec := call("alice-one", `{"all":true}`); rec.Code != http.StatusOK {
+		t.Fatalf("logout all = %d: %s", rec.Code, rec.Body.String())
+	}
+	for _, sessionID := range []string{"alice-one", "alice-two"} {
+		if _, err := sessions.GetBySessionID(sessionID); err == nil {
+			t.Fatalf("session %q should be deleted by logout all", sessionID)
+		}
+	}
+	if _, err := sessions.GetBySessionID("bob-one"); err != nil {
+		t.Fatalf("another user's session was deleted: %v", err)
+	}
+}
+
+func TestLogoutOnlyCurrentSessionByDefault(t *testing.T) {
+	store := newTestStore(t)
+	sessions := database.NewSessionStore(store.db)
+	userID := store.createUser(t, "alice")
+	for _, sessionID := range []string{"current", "other"} {
+		if _, err := sessions.Create(userID, sessionID, "", time.Now().Add(time.Hour)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	handler, err := NewAuthHandler("id", "secret", "http://localhost/callback", "http://localhost", store.users, sessions)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/auth/logout", nil)
+	c.Request.AddCookie(&http.Cookie{Name: sessionCookieName, Value: "current"})
+	handler.Logout(c)
+
+	if _, err := sessions.GetBySessionID("current"); err == nil {
+		t.Fatal("current session should be deleted")
+	}
+	if _, err := sessions.GetBySessionID("other"); err != nil {
+		t.Fatalf("other session should remain: %v", err)
+	}
+}

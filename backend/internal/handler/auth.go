@@ -297,8 +297,32 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 			sessionID = strings.TrimPrefix(auth, "Bearer ")
 		}
 	}
+	// Opsi "logout everywhere": ?all=true, form `all=true`, atau body JSON
+	// {"all": true}. Tanpa opsi ini hanya session yang dipakai yang dihapus.
+	all := strings.EqualFold(strings.TrimSpace(c.Query("all")), "true")
+	if strings.HasPrefix(strings.ToLower(c.ContentType()), "application/json") {
+		var body struct {
+			All bool `json:"all"`
+		}
+		if err := c.ShouldBindJSON(&body); err == nil && body.All {
+			all = true
+		}
+	} else if strings.EqualFold(strings.TrimSpace(c.PostForm("all")), "true") {
+		all = true
+	}
+
 	if sessionID != "" {
-		h.sessionStore.Delete(sessionID)
+		if all {
+			userID := c.GetString("userID")
+			if userID == "" {
+				userID, _ = h.sessionStore.UserIDBySessionID(sessionID)
+			}
+			if userID != "" {
+				_ = h.sessionStore.DeleteAllByUserID(userID)
+			}
+		} else {
+			h.sessionStore.Delete(sessionID)
+		}
 	}
 	c.SetSameSite(http.SameSiteLaxMode)
 	c.SetCookie(sessionCookieName, "", -1, "/", "", isHTTPS(c), true)

@@ -217,7 +217,7 @@ Backend endpoints:
 | --- | --- |
 | Public | `GET /health`, `GET /metrics`, `POST /webhooks/github` |
 | Instant | `POST /api/instant/address`, `POST /api/instant/repo-tree`, `POST /api/instant/repo`, `POST /api/instant/zip` |
-| Auth | `GET /auth/github/login`, `GET /auth/github/callback`, `GET /api/auth/me`, `POST /api/auth/logout` |
+| Auth | `GET /auth/github/login`, `GET /auth/github/callback`, `GET /api/auth/me`, `POST /api/auth/logout` (optional `{"all": true}` or `?all=true` to revoke every session) |
 | Projects | `GET/POST /api/projects`, `GET/DELETE /api/projects/:id`, `POST /api/projects/upload`, `POST /api/projects/:id/deploy`, `GET/PUT /api/projects/:id/domain`, `GET /api/projects/:id/domain/status`, `GET /api/projects/:id/env`, `GET /api/projects/:id/repo`, `GET /api/projects/:id/webhook` |
 | Deployments | `GET /api/projects/:id/deployments`, `POST /api/projects/:id/deployments/:deploymentID/rollback`, `DELETE /api/projects/:id/deployments` |
 | GitHub | `GET /api/github/repos`, `GET /api/github/repos/:owner/:repo/contents`, `GET /api/github/repos/:owner/:repo/readme`, `GET /api/github/profile` |
