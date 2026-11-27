@@ -34,6 +34,13 @@
   // Hasil cek dari backend (butuh sesi login).
   let server = $state({ name: '', available: null, error: '', checking: false });
 
+  // User yang belum login tetap bisa lanjut ke OAuth; pengecekan backend
+  // dilakukan ulang di /deploy setelah sesi dibuat.
+  let nameAvailable = $derived(
+    !session.user ||
+      (server.available === true && server.name === name && !server.checking && !server.error),
+  );
+
   $effect(() => {
     const value = local.ok ? name : '';
     if (!session.user || !value) {
@@ -95,7 +102,7 @@
       inputEl?.focus();
       return;
     }
-    if (!local.ok || server.available === false) return;
+    if (!local.ok || !nameAvailable) return;
 
     claimed = true;
     const next = `/?claim=${encodeURIComponent(name)}`;

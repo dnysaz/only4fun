@@ -57,11 +57,14 @@
   let envValid = $derived(
     envRows.every((row) => !row.key.trim() || isValidEnvKey(row.key.trim())),
   );
+  let nameAvailable = $derived(
+    check.available === true && check.name === name && !check.checking && !check.error,
+  );
   let canSubmit = $derived(
     !submitting &&
       accepted &&
       nameCheck.ok &&
-      check.available !== false &&
+      nameAvailable &&
       (tab === 'zip' ? !!file : !!repoUrl.trim() && envValid),
   );
 
@@ -264,8 +267,8 @@
                 : 'Pick a name for your site.';
       return;
     }
-    if (check.available === false) {
-      error = check.error || 'That name is taken.';
+    if (!nameAvailable) {
+      error = check.error || 'Wait for the name availability check to finish.';
       return;
     }
     if (tab === 'zip' && !file) {
