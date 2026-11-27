@@ -41,6 +41,7 @@ func NewStores(db *database.Database) *Stores {
 // NewRouter membuat Gin engine dengan semua route terdaftar.
 func NewRouter(cfg *config.Config, db *database.Database, worker *builder.Worker, pm *ProcessManager) *gin.Engine {
 	r := gin.Default()
+	r.Use(RequestID())
 
 	// Hanya proxy yang dikonfigurasi yang boleh menentukan IP asli dan skema
 	// HTTPS lewat header. Default-nya loopback; di belakang Cloudflare, isi
@@ -108,9 +109,10 @@ func NewRouter(cfg *config.Config, db *database.Database, worker *builder.Worker
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
+	r.GET("/ready", ReadinessHandler(cfg, db, worker))
 
 	// Metrics endpoint hanya untuk pemantauan lokal.
-	metricsHandler := MetricsHandler()
+	metricsHandler := MetricsHandler(cfg, worker)
 	r.GET("/metrics", func(c *gin.Context) {
 		if !metricsAllowed(c.ClientIP()) {
 			c.Status(http.StatusNotFound)

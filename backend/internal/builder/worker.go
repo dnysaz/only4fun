@@ -12,6 +12,17 @@ import (
 	"only4.fun/backend/internal/dns"
 )
 
+// WorkerStats adalah ringkasan tanpa kunci yang dipakai endpoint /metrics.
+type WorkerStats struct {
+	Queued      int
+	Active      int
+	Total       int64
+	Succeeded   int64
+	Failed      int64
+	LastMS      int64
+	LastFailure string
+}
+
 // Worker memproses antrian deployment satu per satu (bisa beberapa goroutine).
 type Worker struct {
 	builder     *Builder
@@ -19,6 +30,14 @@ type Worker struct {
 	projects    *database.ProjectStore
 	deployments *database.DeploymentStore
 	dns         *dns.Client
+
+	statsMu     sync.Mutex
+	active      int
+	total       int64
+	succeeded   int64
+	failed      int64
+	lastMS      int64
+	lastFailure string
 }
 
 func NewWorker(b *Builder, projects *database.ProjectStore, deployments *database.DeploymentStore, dnsClient *dns.Client) *Worker {
@@ -52,6 +71,42 @@ func (w *Worker) Enqueue(job Job) error {
 	}
 }
 
+// Stats mengembalikan salinan aman untuk dipakai monitoring.
+func (w *Worker) Stats() WorkerStats {
+	w.statsMu.Lock()
+	defer w.statsMu.Unlock()
+	return WorkerStats{
+		Queued:      len(w.queue),
+		Active:      w.active,
+		Total:       w.total,
+		Succeeded:   w.succeeded,
+		Failed:      w.failed,
+		LastMS:      w.lastMS,
+		LastFailure: w.lastFailure,
+	}
+}
+
+func (w *Worker) beginJob() {
+	w.statsMu.Lock()
+	w.active++
+	w.total++
+	w.statsMu.Unlock()
+}
+
+func (w *Worker) finishJob(failure string, started time.Time) {
+	w.statsMu.Lock()
+	defer w.statsMu.Unlock()
+	w.active--
+	w.lastMS = time.Since(started).Milliseconds()
+	if failure == "" {
+		w.succeeded++
+		w.lastFailure = ""
+		return
+	}
+	w.failed++
+	w.lastFailure = failure
+}
+
 func (w *Worker) loop() {
 	for job := range w.queue {
 		w.process(job)
@@ -59,17 +114,25 @@ func (w *Worker) loop() {
 }
 
 func (w *Worker) process(job Job) {
+	started := time.Now()
+	failure := ""
+	w.beginJob()
+
 	var deployment *database.Deployment
 	defer func() {
 		if r := recover(); r != nil {
+			failure = fmt.Sprintf("worker panic: %v", r)
 			log.Printf("worker panic on project %s: %v", job.ProjectID, r)
-			_ = w.projects.UpdateStatus(job.ProjectID, "failed")
+			if w.projects != nil {
+				_ = w.projects.UpdateStatus(job.ProjectID, "failed")
+			}
 			// Tanpa ini record deployment tertinggal di status "building" dan
 			// terminal build di dashboard terus menunggu selamanya.
-			if deployment != nil {
-				_ = w.deployments.UpdateStatus(deployment.ID, "failed", fmt.Sprintf("worker panic: %v", r))
+			if deployment != nil && w.deployments != nil {
+				_ = w.deployments.UpdateStatus(deployment.ID, "failed", failure)
 			}
 		}
+		w.finishJob(failure, started)
 	}()
 
 	var err error
@@ -123,7 +186,8 @@ func (w *Worker) process(job Job) {
 	finalStatus := "success"
 	if buildErr != nil {
 		finalStatus = "failed"
-		logf("ERROR: " + buildErr.Error())
+		failure = buildErr.Error()
+		logf("ERROR: " + failure)
 	} else {
 		logf("ok: " + outDir)
 		// Simpan nama folder rilis agar deployment ini bisa di-rollback nanti.
@@ -141,7 +205,8 @@ func (w *Worker) process(job Job) {
 			logf("dns: registering " + job.Subdomain)
 			if dnsErr := w.dns.EnsureRecord(ctx, job.Subdomain); dnsErr != nil {
 				finalStatus = "failed"
-				logf("dns error: " + dnsErr.Error())
+				failure = dnsErr.Error()
+				logf("dns error: " + failure)
 			} else {
 				logf("dns: ok")
 			}

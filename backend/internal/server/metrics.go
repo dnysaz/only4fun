@@ -4,9 +4,15 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"time"
+
+	"only4.fun/backend/internal/builder"
+	"only4.fun/backend/internal/config"
 
 	"github.com/gin-gonic/gin"
 )
@@ -44,16 +50,76 @@ func metricsAllowed(clientIP string) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
+// nearestExistingDir memakai parent terdekat yang sudah ada, supaya endpoint
+// metrics tidak perlu membuat folder hanya untuk membaca statfs.
+func nearestExistingDir(path string) string {
+	for path != "" && path != "." {
+		if info, err := os.Stat(path); err == nil && info.IsDir() {
+			return path
+		}
+		parent := filepath.Dir(path)
+		if parent == path {
+			break
+		}
+		path = parent
+	}
+	return "."
+}
+
+func diskFreeBytes(path string) (uint64, error) {
+	var stat syscall.Statfs_t
+	if err := syscall.Statfs(nearestExistingDir(path), &stat); err != nil {
+		return 0, err
+	}
+	return uint64(stat.Bavail) * uint64(stat.Bsize), nil
+}
+
+func metricText(value string) string {
+	fields := strings.Fields(strings.ReplaceAll(value, "\n", " "))
+	return strings.Join(fields, " ")
+}
+
 // MetricsHandler menampilkan metrik dasar dalam format teks sederhana.
-func MetricsHandler() gin.HandlerFunc {
+func MetricsHandler(cfg *config.Config, worker *builder.Worker) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		requests, errors, lastReq := Metrics.snapshot()
+		stats := builder.WorkerStats{}
+		if worker != nil {
+			stats = worker.Stats()
+		}
+		var sitesFree, cacheFree uint64
+		if cfg != nil {
+			sitesFree, _ = diskFreeBytes(cfg.Build.SitesDir)
+			cacheFree, _ = diskFreeBytes(cfg.Build.CacheDir)
+		}
+
 		c.Header("Content-Type", "text/plain; charset=utf-8")
 		c.String(http.StatusOK, fmt.Sprintf(
-			"only4fun_metrics\nrequests_total %d\nerrors_total %d\nlast_request_time %d\n",
+			"only4fun_metrics\n"+
+				"requests_total %d\n"+
+				"errors_total %d\n"+
+				"last_request_time %d\n"+
+				"build_queued %d\n"+
+				"build_active %d\n"+
+				"build_total %d\n"+
+				"build_succeeded %d\n"+
+				"build_failed %d\n"+
+				"build_last_duration_ms %d\n"+
+				"build_last_failure %s\n"+
+				"disk_free_sites_bytes %d\n"+
+				"disk_free_cache_bytes %d\n",
 			requests,
 			errors,
 			lastReq.Unix(),
+			stats.Queued,
+			stats.Active,
+			stats.Total,
+			stats.Succeeded,
+			stats.Failed,
+			stats.LastMS,
+			metricText(stats.LastFailure),
+			sitesFree,
+			cacheFree,
 		))
 	}
 }

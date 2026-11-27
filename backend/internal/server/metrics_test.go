@@ -1,9 +1,18 @@
 package server
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"only4.fun/backend/internal/builder"
+	"only4.fun/backend/internal/config"
+
+	"github.com/gin-gonic/gin"
 )
 
 func TestMetricsAllowedOnlyFromLoopback(t *testing.T) {
@@ -42,5 +51,52 @@ func TestMetricsConcurrentRecording(t *testing.T) {
 	}
 	if last.IsZero() {
 		t.Fatal("last request time was not recorded")
+	}
+}
+
+func TestMetricsHandlerIncludesBuildAndDiskStats(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	root := t.TempDir()
+	cfg := &config.Config{Build: config.BuildConfig{
+		SitesDir: filepath.Join(root, "sites"),
+		CacheDir: filepath.Join(root, "cache"),
+	}}
+	worker := builder.NewWorker(nil, nil, nil, nil)
+	if err := worker.Enqueue(builder.Job{ProjectID: "p1"}); err != nil {
+		t.Fatal(err)
+	}
+
+	r := gin.New()
+	r.GET("/metrics", MetricsHandler(cfg, worker))
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+	body := rec.Body.String()
+	for _, want := range []string{
+		"build_queued 1",
+		"build_active 0",
+		"build_total 0",
+		"disk_free_sites_bytes ",
+		"disk_free_cache_bytes ",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("metrics missing %q:\n%s", want, body)
+		}
+	}
+}
+
+func TestMetricTextIsSingleLine(t *testing.T) {
+	if got := metricText("boom\nwith\tdetails"); got != "boom with details" {
+		t.Fatalf("metricText = %q", got)
+	}
+}
+
+func TestDiskFreeBytesUsesNearestExistingDir(t *testing.T) {
+	root := t.TempDir()
+	free, err := diskFreeBytes(filepath.Join(root, "not-created", "sites"))
+	if err != nil {
+		t.Fatalf("diskFreeBytes: %v", err)
+	}
+	if free == 0 {
+		t.Fatal("diskFreeBytes = 0, want available space")
 	}
 }
