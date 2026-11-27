@@ -1197,8 +1197,15 @@
 
   details.log {
     flex: 1 1 100%;
+    min-width: 0;
+    max-width: 100%;
     color: var(--muted);
     font: 500 16px/1.5 'Gabarito', sans-serif;
+  }
+
+  .log-box {
+    min-width: 0;
+    max-width: 100%;
   }
 
   summary {
@@ -1249,7 +1256,10 @@
   }
 
   pre {
+    box-sizing: border-box;
     width: 100%;
+    min-width: 0;
+    max-width: 100%;
     min-height: 240px;
     max-height: 420px;
     overflow: auto;
@@ -1260,6 +1270,8 @@
     color: var(--ink);
     font: 400 16px/1.6 'Gabarito', sans-serif;
     white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   .env-rows {

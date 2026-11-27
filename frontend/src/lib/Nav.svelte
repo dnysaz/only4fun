@@ -79,9 +79,16 @@
             <span>{initials}</span>
           {/if}
         </a>
-        <a class="btn" href="/launchpad" onclick={goDashboard}>Launchpad</a>
+        <a class="btn launchpad-btn" href="/launchpad" onclick={goDashboard}>Launchpad</a>
         {#if onSignOut}
-          <button class="signout" type="button" onclick={onSignOut}>Sign out</button>
+          <button class="signout" type="button" onclick={onSignOut} aria-label="Sign out" title="Sign out">
+            <svg class="signout-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <path d="m16 17 5-5-5-5" />
+              <path d="M21 12H9" />
+            </svg>
+            <span class="signout-label">Sign out</span>
+          </button>
         {/if}
       {:else}
         <a class="btn" href={api.loginUrl('/launchpad')}>Get started</a>
@@ -207,6 +214,9 @@
   }
 
   nav button.signout {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     background: transparent;
     border: 1.5px solid var(--muted);
     border-radius: 999px;
@@ -215,6 +225,12 @@
     color: var(--ink);
     white-space: nowrap;
     cursor: pointer;
+  }
+
+  .signout-icon {
+    display: none;
+    width: 18px;
+    height: 18px;
   }
 
   nav button.signout:hover {
@@ -239,14 +255,30 @@
       gap: 8px;
     }
 
+    .actions {
+      gap: 8px;
+    }
+
     nav a.btn {
       padding: 10px 18px;
       font-size: 15px;
     }
 
+    nav a.launchpad-btn {
+      display: none;
+    }
+
     nav button.signout {
-      padding: 10px 18px;
+      padding: 10px;
       font: 600 15px/1 'Gabarito', sans-serif;
+    }
+
+    .signout-icon {
+      display: block;
+    }
+
+    .signout-label {
+      display: none;
     }
   }
 </style>
