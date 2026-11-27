@@ -33,7 +33,7 @@ Verifikasi standar: `cd backend && go test ./... -count=1`, `go vet ./...`, `cd 
 | H8 | Repo URL arbitrary bisa lolos ke submit | `frontend/src/lib/CreateProject.svelte` | Done | `isValidGitHubRepoUrl()` memakai `URL()` + hostname github.com/www, menolak credentials; dipakai di `sourceValid`, preview, dan submit. |
 | H9 | Instant deploy bisa beda alamat dari preview | `frontend/src/lib/InstantDeploy.svelte` | Done | Launch hanya aktif bila preview punya `subdomain` + `token`; gagal generate menampilkan error + Retry. |
 | H10 | Revalidasi session hanya saat `visibilitychange` | `frontend/src/App.svelte`, `session.svelte.js` | Done | Revalidate saat route change dan idle 5 menit; request sesi di-dedupe dengan `inFlight`. |
-| H11 | Poll tetap jalan setelah session expired | `frontend/src/lib/ProjectDetail.svelte` | Pending | Gate poll dengan `session.user`. |
+| H11 | Poll tetap jalan setelah session expired | `frontend/src/lib/ProjectDetail.svelte` | Done | Build-log poll dan domain-status poll dihentikan bila `session.user` kosong. |
 
 ## Medium
 
@@ -90,3 +90,4 @@ Verifikasi standar: `cd backend && go test ./... -count=1`, `go vet ./...`, `cd 
 - 2026-11-27 — H8 done: URL repo divalidasi persis seperti backend.
 - 2026-11-27 — H9 done: instant deploy tidak bisa launch tanpa alamat preview yang valid.
 - 2026-11-27 — H10 done: sesi divalidasi ulang saat pindah route dan idle timer.
+- 2026-11-27 — H11 done: polling detail project berhenti saat sesi hangus.

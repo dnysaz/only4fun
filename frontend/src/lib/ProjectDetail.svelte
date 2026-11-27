@@ -254,10 +254,11 @@
 
   $effect(() => {
     const running =
-      livePolling ||
-      deployments.some(isRunning) ||
-      project?.status === 'pending' ||
-      project?.status === 'building';
+      !!session.user &&
+      (livePolling ||
+        deployments.some(isRunning) ||
+        project?.status === 'pending' ||
+        project?.status === 'building');
     if (running && !pollTimer) {
       pollTimer = window.setInterval(refreshLive, 900);
     } else if (!running && pollTimer) {
@@ -367,7 +368,7 @@
   }
 
   async function loadDomainStatus() {
-    if (!id || checkingDomain) return;
+    if (!session.user || !id || checkingDomain) return;
     checkingDomain = true;
     try {
       const data = await api.domainStatus(id);
@@ -382,7 +383,7 @@
   }
 
   $effect(() => {
-    if (!project?.custom_domain || domainState === 'active') {
+    if (!session.user || !project?.custom_domain || domainState === 'active') {
       if (domainStatusTimer) {
         window.clearInterval(domainStatusTimer);
         domainStatusTimer = null;
