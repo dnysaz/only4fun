@@ -178,7 +178,7 @@
   </div>
 
   {#if onSignOut}
-    <button class="drawer-item" type="button" onclick={signOutFromDrawer}>
+    <button class="drawer-item danger" type="button" onclick={signOutFromDrawer}>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
         <path d="m16 17 5-5-5-5" />
@@ -352,6 +352,15 @@
     visibility: visible;
   }
 
+  /* Scrim ikut button, tapi jangan sampai kena hover biru / border global. */
+  :global(body button.drawer-backdrop) {
+    border: 0 !important;
+  }
+
+  :global(body button.drawer-backdrop:hover:not(:disabled)) {
+    background: rgba(32, 33, 36, 0.45) !important;
+  }
+
   .account-drawer {
     position: fixed;
     left: 0;
@@ -408,19 +417,25 @@
     font-size: 14px;
   }
 
+  /* Sama seperti tombol Delete project: pill outline merah, isi merah. */
   button.drawer-item {
     display: flex;
     align-items: center;
     gap: 12px;
     width: 100%;
-    padding: 16px 0;
-    border: 0;
-    border-top: 1px solid var(--line);
-    border-radius: 0;
+    min-height: 52px;
+    padding: 13px 20px;
+    border: 1.5px solid var(--muted);
+    border-radius: 999px;
     background: transparent;
-    color: var(--ink);
-    font: 600 17px/1 'Gabarito', sans-serif;
+    color: var(--red);
+    font: 600 16px/1 'Gabarito', sans-serif;
     text-align: left;
+  }
+
+  button.drawer-item:hover:not(:disabled) {
+    background: var(--red) !important;
+    color: #fff !important;
   }
 
   button.drawer-item svg {
