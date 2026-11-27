@@ -241,18 +241,57 @@ func extractZip(zipPath, dst string) error {
 	return nil
 }
 
-// stripSingleRoot returns the contents of a folder if the archive wraps everything
-// inside a single folder (e.g., project/index.html); otherwise the folder itself.
+// stripSingleRoot mencari folder yang benar-benar berisi index.html.
+// ZIP sering dibungkus satu folder, kadang bersama file lain (README.md),
+// atau dua level (dist/site/index.html). Kandidat harus unik supaya tidak
+// salah menyajikan folder.
 func stripSingleRoot(dir string) string {
-	entries, err := os.ReadDir(dir)
-	if err != nil || len(entries) != 1 || !entries[0].IsDir() {
+	if hasIndex(dir) {
 		return dir
 	}
-	inner := filepath.Join(dir, entries[0].Name())
-	if _, err := os.Stat(filepath.Join(inner, "index.html")); err == nil {
-		return inner
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return dir
+	}
+
+	var found string
+	count := 0
+	add := func(candidate string) {
+		found = candidate
+		count++
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		child := filepath.Join(dir, entry.Name())
+		if hasIndex(child) {
+			add(child)
+			continue
+		}
+		grandchildren, err := os.ReadDir(child)
+		if err != nil {
+			continue
+		}
+		for _, grandchild := range grandchildren {
+			if !grandchild.IsDir() {
+				continue
+			}
+			nested := filepath.Join(child, grandchild.Name())
+			if hasIndex(nested) {
+				add(nested)
+			}
+		}
+	}
+	if count == 1 {
+		return found
 	}
 	return dir
+}
+
+func hasIndex(dir string) bool {
+	info, err := os.Stat(filepath.Join(dir, "index.html"))
+	return err == nil && !info.IsDir()
 }
 
 // countFiles menghitung file di folder (dipakai untuk log deployment).

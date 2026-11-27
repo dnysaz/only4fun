@@ -116,11 +116,37 @@ func TestStripSingleRoot(t *testing.T) {
 		t.Fatalf("stripSingleRoot = %q, ingin %q", got, nested)
 	}
 
-	// Dua entri di root berarti folder root dipakai apa adanya.
+	// File tambahan di root tidak menghalangi folder berisi index.html.
 	if err := os.WriteFile(filepath.Join(root, "extra.txt"), []byte("x"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	if got := stripSingleRoot(root); got != nested {
+		t.Fatalf("stripSingleRoot = %q, ingin %q", got, nested)
+	}
+
+	// Dua kandidat berisi index.html membuat root dipakai apa adanya.
+	other := filepath.Join(root, "other")
+	if err := os.MkdirAll(other, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(other, "index.html"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 	if got := stripSingleRoot(root); got != root {
-		t.Fatalf("stripSingleRoot = %q, ingin %q", got, root)
+		t.Fatalf("ambiguous stripSingleRoot = %q, ingin %q", got, root)
+	}
+}
+
+func TestStripSingleRootNestedFolder(t *testing.T) {
+	root := t.TempDir()
+	site := filepath.Join(root, "dist", "site")
+	if err := os.MkdirAll(site, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(site, "index.html"), []byte("ok"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := stripSingleRoot(root); got != site {
+		t.Fatalf("stripSingleRoot = %q, ingin %q", got, site)
 	}
 }
