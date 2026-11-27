@@ -10,6 +10,8 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
+	"time"
 
 	"only4.fun/backend/internal/database"
 
@@ -19,6 +21,37 @@ import (
 // maxWebhookBody membatasi ukuran payload webhook GitHub (push event besar
 // karena berisi daftar commit).
 const maxWebhookBody = 5 << 20
+
+// webhookDeliveryTTL mencegah delivery yang sama memicu dua build bila GitHub
+// mengirim ulang callback setelah timeout jaringan.
+const webhookDeliveryTTL = 10 * time.Minute
+
+var (
+	webhookDeliveryMu sync.Mutex
+	webhookDeliveries = make(map[string]time.Time)
+)
+
+// markWebhookDelivery mengembalikan true bila delivery ID belum pernah diproses.
+// ID kosong dianggap unik supaya webhook lama tanpa header tetap diproses.
+func markWebhookDelivery(id string) bool {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return true
+	}
+	now := time.Now()
+	webhookDeliveryMu.Lock()
+	defer webhookDeliveryMu.Unlock()
+	for key, at := range webhookDeliveries {
+		if now.Sub(at) > webhookDeliveryTTL {
+			delete(webhookDeliveries, key)
+		}
+	}
+	if _, seen := webhookDeliveries[id]; seen {
+		return false
+	}
+	webhookDeliveries[id] = now
+	return true
+}
 
 // GetWebhookInfo menampilkan URL dan secret webhook untuk pemilik project.
 // Nilai secret hanya dikirim ke pemilik yang sudah terotentikasi.
@@ -115,6 +148,13 @@ func (h *ProjectHandler) HandleGitHubWebhook(c *gin.Context) {
 	}
 	if project == nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid webhook signature"})
+		return
+	}
+
+	// Hanya setelah HMAC valid: penyerang tidak boleh mengisi cache dengan ID
+	// palsu, dan GitHub retry tidak boleh mengantrikan build dua kali.
+	if !markWebhookDelivery(c.GetHeader("X-GitHub-Delivery")) {
+		c.JSON(http.StatusAccepted, gin.H{"message": "duplicate delivery ignored"})
 		return
 	}
 

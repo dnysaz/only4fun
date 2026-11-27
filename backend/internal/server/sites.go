@@ -75,9 +75,8 @@ func SiteHandler(cfg *config.Config, projectStore *database.ProjectStore, pm *Pr
 		// Fallback: serve static site langsung dari disk jika project tidak ditemukan di DB
 		if project == nil && subdomain != "" {
 			subdomainFolder := filepath.Join(sitesDir, subdomain)
-			indexPath := filepath.Join(subdomainFolder, "index.html")
-			if _, err := os.Stat(indexPath); err == nil {
-				c.File(indexPath)
+			if _, err := os.Stat(filepath.Join(subdomainFolder, "index.html")); err == nil {
+				serveStatic(c, subdomainFolder, nil, projectStore)
 				return
 			}
 			// Release disimpan di <sitesDir>/.releases/<subdomain>/<release>,
@@ -85,9 +84,9 @@ func SiteHandler(cfg *config.Config, projectStore *database.ProjectStore, pm *Pr
 			releasesDir := filepath.Join(sitesDir, ".releases", subdomain)
 			if entries, err := os.ReadDir(releasesDir); err == nil && len(entries) > 0 {
 				latest := entries[len(entries)-1].Name()
-				indexPath = filepath.Join(releasesDir, latest, "index.html")
-				if _, err := os.Stat(indexPath); err == nil {
-					c.File(indexPath)
+				releaseRoot := filepath.Join(releasesDir, latest)
+				if _, err := os.Stat(filepath.Join(releaseRoot, "index.html")); err == nil {
+					serveStatic(c, releaseRoot, nil, projectStore)
 					return
 				}
 			}
@@ -241,6 +240,16 @@ func serveStatic(c *gin.Context, root string, project *database.Project, project
 		rel = "index.html"
 	}
 
+	// Jangan pernah menyajikan dotfile dari hasil build: .env, .git, dan
+	// folder .releases tidak boleh bisa diakses publik. .well-known dikecualikan
+	// karena dipakai validasi SSL/DCV.
+	for _, segment := range strings.Split(rel, "/") {
+		if strings.HasPrefix(segment, ".") && segment != ".well-known" {
+			c.String(http.StatusNotFound, "page not found")
+			return
+		}
+	}
+
 	target := filepath.Join(root, filepath.FromSlash(rel))
 	// Cegah path traversal keluar dari folder situs.
 	if !strings.HasPrefix(target, filepath.Clean(root)+string(os.PathSeparator)) {
@@ -274,7 +283,7 @@ func serveStatic(c *gin.Context, root string, project *database.Project, project
 
 	c.Header("X-Content-Type-Options", "nosniff")
 	// Hitung kunjungan hanya untuk permintaan halaman, bukan aset statis.
-	if isDocumentRequest(rel) {
+	if project != nil && isDocumentRequest(rel) {
 		_ = projectStore.RecordVisit(project.ID)
 	}
 	http.ServeFile(c.Writer, c.Request, target)

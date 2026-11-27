@@ -48,6 +48,22 @@ func TestUnverifiedWebhookDoesNotCreateSecret(t *testing.T) {
 	}
 }
 
+func TestMarkWebhookDeliveryIsIdempotent(t *testing.T) {
+	const delivery = "test-delivery-alice-1"
+	if !markWebhookDelivery(delivery) {
+		t.Fatal("first delivery should be accepted")
+	}
+	if markWebhookDelivery(delivery) {
+		t.Fatal("duplicate delivery should be ignored")
+	}
+	if !markWebhookDelivery("test-delivery-alice-2") {
+		t.Fatal("different delivery should be accepted")
+	}
+	if !markWebhookDelivery("") {
+		t.Fatal("legacy webhook without delivery header should still be processed")
+	}
+}
+
 func TestValidWebhookSignature(t *testing.T) {
 	body := []byte(`{"ref":"refs/heads/main"}`)
 	valid := sign("s3cret", body)

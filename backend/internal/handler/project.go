@@ -500,6 +500,12 @@ func (h *ProjectHandler) Redeploy(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "this project was created from a ZIP file; create a new project with the latest ZIP to publish an update"})
 		return
 	}
+	// Jangan dua kali mengantrikan project yang sudah menunggu/dibangun:
+	// worker akan menimpa log dan status deployment yang masih berjalan.
+	if project.Status == "building" || project.Status == "pending" {
+		c.JSON(http.StatusConflict, gin.H{"error": "a deploy is already running"})
+		return
+	}
 	if err := h.projectStore.UpdateStatus(project.ID, "pending"); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to start redeploy"})
 		return

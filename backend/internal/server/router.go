@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"html"
 	"log"
+	"net/http"
 	"strings"
 	"time"
 
@@ -106,8 +107,15 @@ func NewRouter(cfg *config.Config, db *database.Database, worker *builder.Worker
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
-	// Metrics endpoint
-	r.GET("/metrics", MetricsHandler())
+	// Metrics endpoint hanya untuk pemantauan lokal.
+	metricsHandler := MetricsHandler()
+	r.GET("/metrics", func(c *gin.Context) {
+		if !metricsAllowed(c.ClientIP()) {
+			c.Status(http.StatusNotFound)
+			return
+		}
+		metricsHandler(c)
+	})
 
 	// Webhook GitHub (tanpa session; diverifikasi lewat HMAC signature).
 	r.POST("/webhooks/github", RateLimit(120, time.Minute), projectHandler.HandleGitHubWebhook)

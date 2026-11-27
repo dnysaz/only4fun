@@ -2,7 +2,9 @@ package server
 
 import (
 	"fmt"
+	"net"
 	"net/http"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -34,6 +36,13 @@ func (m *metrics) snapshot() (requests int64, errors int64, last time.Time) {
 
 // Metrics menyimpan metrik proses server.
 var Metrics = &metrics{}
+
+// metricsAllowed membatasi /metrics untuk pemantauan lokal. Scraper di VPS
+// atau sidecar memakai loopback; publik tidak boleh melihat angka internal.
+func metricsAllowed(clientIP string) bool {
+	ip := net.ParseIP(strings.TrimSpace(clientIP))
+	return ip != nil && ip.IsLoopback()
+}
 
 // MetricsHandler menampilkan metrik dasar dalam format teks sederhana.
 func MetricsHandler() gin.HandlerFunc {

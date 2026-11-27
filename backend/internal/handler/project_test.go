@@ -148,6 +148,32 @@ func TestValidateSubdomainBlockedWordsExactMatch(t *testing.T) {
 	}
 }
 
+func TestRedeployRejectsAlreadyRunningProject(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	store := newTestStore(t)
+	userID := store.createUser(t, "alice")
+	projectID := store.createProject(t, userID, "https://github.com/alice/site", "busy-site", nil)
+	if err := store.projects.UpdateStatus(projectID, "building"); err != nil {
+		t.Fatal(err)
+	}
+	handler := newTestHandler(t, store)
+
+	for _, status := range []string{"building", "pending"} {
+		if err := store.projects.UpdateStatus(projectID, status); err != nil {
+			t.Fatal(err)
+		}
+		rec := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(rec)
+		c.Request = httptest.NewRequest(http.MethodPost, "/api/projects/"+projectID+"/deploy", nil)
+		c.Params = gin.Params{{Key: "id", Value: projectID}}
+		c.Set("userID", userID)
+		handler.Redeploy(c)
+		if rec.Code != http.StatusConflict {
+			t.Errorf("Redeploy on %s = %d, want 409; body = %s", status, rec.Code, rec.Body.String())
+		}
+	}
+}
+
 func TestClearDeploymentsCleansUnusedReleases(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	store := newTestStore(t)

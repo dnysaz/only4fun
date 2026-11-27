@@ -6,6 +6,19 @@ import (
 	"time"
 )
 
+func TestMetricsAllowedOnlyFromLoopback(t *testing.T) {
+	for _, ip := range []string{"127.0.0.1", "::1"} {
+		if !metricsAllowed(ip) {
+			t.Errorf("metricsAllowed(%q) = false, want true", ip)
+		}
+	}
+	for _, ip := range []string{"10.0.0.5", "203.0.113.9", "", "not-an-ip"} {
+		if metricsAllowed(ip) {
+			t.Errorf("metricsAllowed(%q) = true, want false", ip)
+		}
+	}
+}
+
 func TestMetricsConcurrentRecording(t *testing.T) {
 	var m metrics
 	var wg sync.WaitGroup
