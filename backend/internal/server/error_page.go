@@ -115,7 +115,7 @@ func errorPage(statusCode int, title, highlight, message, ctaText, baseURL strin
     .dots4 i:nth-child(3) { background: var(--yellow); }
     .dots4 i:nth-child(4) { background: var(--green); }
 
-    nav {
+    body > nav {
       position: fixed;
       top: calc(env(safe-area-inset-top, 0px) + 12px);
       left: var(--page-x);
@@ -131,7 +131,7 @@ func errorPage(statusCode int, title, highlight, message, ctaText, baseURL strin
       border-radius: 999px;
       transition: border-color 160ms ease;
     }
-    nav.scrolled { border-color: var(--line); }
+    body > nav.scrolled { border-color: var(--line); }
     .logo {
       display: flex;
       align-items: center;
@@ -144,7 +144,7 @@ func errorPage(statusCode int, title, highlight, message, ctaText, baseURL strin
     }
     .logo .word { display: inline-block; }
     .logo .fun { color: var(--blue); }
-    nav ul {
+    body > nav ul {
       display: flex;
       gap: 32px;
       list-style: none;
@@ -152,8 +152,8 @@ func errorPage(statusCode int, title, highlight, message, ctaText, baseURL strin
       padding: 0;
       align-items: center;
     }
-    nav a { text-decoration: none; font-weight: 500; color: var(--muted); }
-    nav a:hover { color: var(--ink); }
+    body > nav a { text-decoration: none; font-weight: 500; color: var(--muted); }
+    body > nav a:hover { color: var(--ink); }
     .nav-arrow {
       display: inline-flex;
       align-items: center;
@@ -161,9 +161,9 @@ func errorPage(statusCode int, title, highlight, message, ctaText, baseURL strin
       transition: transform 160ms ease;
     }
     .nav-arrow svg { width: 15px; height: 15px; }
-    nav a:hover .nav-arrow { transform: translate(2px, -2px); }
+    body > nav a:hover .nav-arrow { transform: translate(2px, -2px); }
     .actions { display: flex; align-items: center; gap: 12px; }
-    nav a.btn {
+    body > nav a.btn {
       color: #fff;
       padding: 12px 24px;
       font-size: 17px;
@@ -261,9 +261,9 @@ func errorPage(statusCode int, title, highlight, message, ctaText, baseURL strin
       align-items: start;
       margin-top: 22px;
     }
-    .intro { min-width: 0; padding-top: 26px; }
+    .hero .intro { min-width: 0; padding-top: 26px; }
     .lead {
-      font-size: clamp(19px, 1.7vw, 24px);
+      font-size: clamp(21px, 2vw, 28px);
       line-height: 1.45;
       max-width: 30em;
       margin: 0;
@@ -369,7 +369,7 @@ func errorPage(statusCode int, title, highlight, message, ctaText, baseURL strin
     @media (max-width: 1050px) { .hero-dots { display: none; } }
     @media (max-width: 900px) {
       body { font-size: 18px; }
-      nav ul li:not(.actions) { display: none; }
+      body > nav ul li:not(.actions) { display: none; }
       .hero { padding: 26px 0 72px; }
       .eyebrow { margin-bottom: 20px; font-size: 12px; }
       .lower { margin-top: 24px; }
@@ -385,9 +385,9 @@ func errorPage(statusCode int, title, highlight, message, ctaText, baseURL strin
     }
     @media (max-width: 700px) {
       :root { --page-x: 18px; }
-      nav { padding: 0 18px; }
+      body > nav { padding: 0 18px; }
       .logo { font-size: 24px; gap: 8px; }
-      nav a.btn { padding: 10px 18px; font-size: 15px; }
+      body > nav a.btn { padding: 10px 18px; font-size: 15px; }
       .groups { grid-template-columns: 1fr; }
     }
     @media (max-width: 560px) {

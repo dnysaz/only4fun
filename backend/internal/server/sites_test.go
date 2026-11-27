@@ -290,6 +290,9 @@ func TestSiteHandlerNotFoundPageIncludesBrandedLayout(t *testing.T) {
 		t.Fatalf("status = %d, want 404; body = %s", rec.Code, rec.Body.String())
 	}
 	body := rec.Body.String()
+	if !strings.Contains(body, "body > nav {") || strings.Contains(body, "\n    nav {") {
+		t.Errorf("top navbar CSS is not scoped; the footer nav would be positioned as fixed too")
+	}
 	for _, want := range []string{
 		"This site",
 		"isn’t here.",
