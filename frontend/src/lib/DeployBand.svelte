@@ -14,11 +14,12 @@
       <h2>Push it. We'll do the rest.</h2>
       <p class="lede">
         No servers, no setup calls, no config files. Paste a public GitHub link or drop a ZIP — we
-        detect your framework, build in Singapore, switch on Cloudflare SSL and hand you a live URL.
+        detect your framework, build on AWS, switch on Cloudflare SSL and hand you a live URL.
       </p>
       <p class="tech">
         <span class="dot" aria-hidden="true"></span>
-        Powered by a Go backend — compiled, lightweight and secure, so every deploy stays fast.
+        Powered by AWS servers and a compiled Go backend — fast, lightweight and secure, with
+        Cloudflare SSL on every deploy.
       </p>
       <a class="btn" href="/instant" onclick={goInstant}>Deploy for free →</a>
       <p class="note">Free forever. No credit card. No limits.</p>
@@ -28,7 +29,7 @@
       <div class="tl"><span></span><span></span><span></span></div>
       <div class="l"><span class="d">only4fun</span> $ import github.com/yoursite/portfolio</div>
       <div class="l d">Detected Next.js · zero config needed</div>
-      <div class="l d">Building in Singapore (sin1)</div>
+      <div class="l d">Building on AWS</div>
       <div class="l"><span class="g">✓</span> SSL active via Cloudflare</div>
       <div class="l"><span class="g">✓</span> Build finished in <span class="y">14s</span></div>
       <div class="l">Live at <span class="b">https://yoursite.only4.fun</span></div>

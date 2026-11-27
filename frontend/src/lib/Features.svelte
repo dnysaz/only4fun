@@ -26,8 +26,8 @@
     {
       icon: 'server',
       tone: 'green',
-      title: 'Singapore servers',
-      text: 'Builds and hosting run in Singapore, close to visitors across Southeast Asia.',
+      title: 'AWS infrastructure',
+      text: 'Builds and hosting run on AWS, with Cloudflare SSL keeping every site fast and secure worldwide.',
     },
     {
       icon: 'bolt',
