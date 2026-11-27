@@ -4,6 +4,15 @@ import (
 	"testing"
 )
 
+func testUserID(t *testing.T, db *Database) string {
+	t.Helper()
+	user, err := NewUserStore(db).Create("test-github-id", "test-user", "", "")
+	if err != nil {
+		t.Fatalf("create test user: %v", err)
+	}
+	return user.ID
+}
+
 // TestGetByRepoURLCaseInsensitive memastikan pencarian project per repo URL
 // case-insensitive, sesuai konsistensi handler.
 func TestCustomDomainUniqueIsCaseInsensitive(t *testing.T) {
@@ -11,7 +20,7 @@ func TestCustomDomainUniqueIsCaseInsensitive(t *testing.T) {
 	defer db.Close()
 
 	store := NewProjectStore(db)
-	userID := "user-uuid"
+	userID := testUserID(t, db)
 	first, err := store.Create(userID, "https://github.com/alice/one", "one-site", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -42,7 +51,7 @@ func TestGetByRepoURLCaseInsensitive(t *testing.T) {
 	defer db.Close()
 
 	store := NewProjectStore(db)
-	userID := "user-uuid"
+	userID := testUserID(t, db)
 
 	// Buat dua project, URL yang sama tapi dengan casing berbeda.
 	store.Create(userID, "https://github.com/alice/API.git", "upper-api", nil)
