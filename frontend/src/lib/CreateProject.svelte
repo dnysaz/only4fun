@@ -45,6 +45,8 @@
   let accepted = $state(false);
 
   const emptyTree = { paths: [], loading: false, error: '', truncated: false };
+  const TREE_PAGE = 120;
+  const REPO_PAGE = 50;
   // Sama seperti backend/internal/execenv: kunci ini milik sandbox build.
   const RESERVED_ENV_KEYS = new Set([
     'PATH', 'HOME', 'TMPDIR', 'TEMP', 'TMP', 'SHELL', 'BASH_ENV', 'ENV', 'CDPATH', 'IFS',
@@ -61,12 +63,16 @@
   let nameCheck = $derived(validateName(name));
   let sourceValid = $derived(tab === 'zip' ? !!file : isValidGitHubRepoUrl(repoUrl));
   let treeRows = $derived(buildTreeRows(tree.paths));
+  let treeLimit = $state(TREE_PAGE);
+  let visibleTreeRows = $derived(treeRows.slice(0, treeLimit));
   let fileCount = $derived(normalizeTreePaths(tree.paths).length);
   let filteredRepos = $derived(
     repoList.filter((repo) =>
       `${repo.full_name} ${repo.name}`.toLowerCase().includes(repoSearch.trim().toLowerCase()),
     ),
   );
+  let repoLimit = $state(REPO_PAGE);
+  let visibleRepos = $derived(filteredRepos.slice(0, repoLimit));
   let envCount = $derived(envRows.filter((row) => row.key.trim()).length);
   let envValid = $derived(
     envRows.every((row) => !row.key.trim() || isValidEnvKey(row.key.trim())),
@@ -82,6 +88,26 @@
       sourceValid &&
       (tab === 'zip' || envValid),
   );
+
+  // Daftar panjang dirender bertahap supaya perubahan sumber/repo search tidak
+  // membuat ratusan/ ribuan node DOM sekaligus.
+  $effect(() => {
+    tree.paths;
+    treeLimit = TREE_PAGE;
+  });
+
+  $effect(() => {
+    repoSearch;
+    repoLimit = REPO_PAGE;
+  });
+
+  function showMoreTree() {
+    treeLimit += TREE_PAGE;
+  }
+
+  function showMoreRepos() {
+    repoLimit += REPO_PAGE;
+  }
 
   // Isi nama dari "?claim=" di URL hanya sekali (bukan tiap render).
   let lastPreset = '';
@@ -444,7 +470,7 @@
                   </p>
                 {:else}
                   <ul class="repo-results">
-                    {#each filteredRepos as repo (repo.full_name)}
+                    {#each visibleRepos as repo (repo.full_name)}
                       <li>
                         <button
                           type="button"
@@ -463,6 +489,11 @@
                       </li>
                     {/each}
                   </ul>
+                  {#if filteredRepos.length > visibleRepos.length}
+                    <button type="button" class="quiet load-more" onclick={showMoreRepos}>
+                      Show {Math.min(REPO_PAGE, filteredRepos.length - visibleRepos.length)} more
+                    </button>
+                  {/if}
                   {#if repoHasMore}
                     <button type="button" class="quiet load-more" onclick={() => loadRepos({ append: true })} disabled={repoLoadingMore}>
                       {#if repoLoadingMore}
@@ -671,7 +702,7 @@
             site/
           </div>
           <ul class="tree-list">
-            {#each treeRows as row (row.path)}
+            {#each visibleTreeRows as row (row.path)}
               <li class={row.kind} style:padding-left={indent(row.depth)}>
                 {#if row.kind === 'folder'}
                   <svg class="folder-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
@@ -693,6 +724,11 @@
               </li>
             {/each}
           </ul>
+          {#if treeRows.length > visibleTreeRows.length}
+            <button type="button" class="quiet tree-more" onclick={showMoreTree}>
+              Show {Math.min(TREE_PAGE, treeRows.length - visibleTreeRows.length)} more files
+            </button>
+          {/if}
           {#if tree.truncated}
             <p class="tree-note">Showing a limited preview of the files.</p>
           {/if}
@@ -1384,6 +1420,10 @@
     border-radius: 999px;
     font: 600 15px/1 'Gabarito', sans-serif;
     color: var(--blue);
+  }
+
+  .tree-more {
+    margin: 10px 0 0;
   }
 
   .tree-note {

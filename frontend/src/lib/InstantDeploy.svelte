@@ -29,11 +29,14 @@
   let treeToken = 0;
 
   const emptyTree = { paths: [], signals: [], loading: false, error: '', truncated: false };
+  const TREE_PAGE = 120;
 
   // Tombol launch ditahan sampai alamat preview selesai dibuat, supaya alamat
   // yang terlihat di form sama persis dengan alamat situs yang di-publish.
   let sourceValid = $derived(tab === 'zip' ? !!file : isValidGitHubRepoUrl(repoUrl));
   let treeRows = $derived(buildTreeRows(tree.paths));
+  let treeLimit = $state(TREE_PAGE);
+  let visibleTreeRows = $derived(treeRows.slice(0, treeLimit));
   let fileCount = $derived(normalizeTreePaths(tree.paths).length);
   let frameworkDetected = $derived(detectFramework(tree.paths, tree.signals));
   let launchDisabled = $derived(
@@ -47,6 +50,17 @@
       !preview.token ||
       (sourceValid && preview.loading),
   );
+
+  // File tree dirender bertahap supaya ZIP besar tidak membuat ratusan node
+  // DOM sekaligus saat preview pertama kali muncul.
+  $effect(() => {
+    tree.paths;
+    treeLimit = TREE_PAGE;
+  });
+
+  function showMoreTree() {
+    treeLimit += TREE_PAGE;
+  }
 
   async function requestPreview() {
     const token = ++previewToken;
@@ -424,7 +438,7 @@
                 site/
               </div>
               <ul class="tree-list">
-                {#each treeRows as row (row.path)}
+                {#each visibleTreeRows as row (row.path)}
                   <li class={row.kind} style:padding-left={indent(row.depth)}>
                     {#if row.kind === 'folder'}
                       <svg class="folder-icon" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true">
@@ -446,6 +460,11 @@
                   </li>
                 {/each}
               </ul>
+              {#if treeRows.length > visibleTreeRows.length}
+                <button type="button" class="quiet tree-more" onclick={showMoreTree}>
+                  Show {Math.min(TREE_PAGE, treeRows.length - visibleTreeRows.length)} more files
+                </button>
+              {/if}
               {#if tree.truncated}
                 <p class="tree-note">Showing a limited preview of the files.</p>
               {/if}
@@ -957,6 +976,10 @@
     border-radius: 999px;
     font: 600 15px/1 'Gabarito', sans-serif;
     color: var(--blue);
+  }
+
+  .tree-more {
+    margin: 10px 0 0;
   }
 
   .tree-note {
