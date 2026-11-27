@@ -42,6 +42,49 @@ func TestServerEntryForProject(t *testing.T) {
 	}
 }
 
+func TestSiteHandlerFallsBackToReleasesInsideSitesDir(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	if err := secure.Init("only4.fun-test-secret"); err != nil {
+		t.Fatalf("init encryption: %v", err)
+	}
+	db, err := database.Init(filepath.Join(t.TempDir(), "test.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	if err := database.Migrate(db); err != nil {
+		t.Fatal(err)
+	}
+
+	sitesDir := t.TempDir()
+	release := filepath.Join(sitesDir, ".releases", "ghost", "2026-11-27-000000")
+	if err := os.MkdirAll(release, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(release, "index.html"), []byte("<h1>from releases</h1>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg := &config.Config{
+		Cloudflare: config.CloudflareConfig{Domain: "only4.fun"},
+		Build:      config.BuildConfig{SitesDir: sitesDir},
+	}
+	handler := SiteHandler(cfg, database.NewProjectStore(db), nil)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "http://ghost.only4.fun/", nil)
+	c.Request.Host = "ghost.only4.fun"
+	handler(c)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body = %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "from releases") {
+		t.Fatalf("body = %q, want release index.html", rec.Body.String())
+	}
+}
+
 func TestSiteHandlerServesCustomDomain(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	if err := secure.Init("only4.fun-test-secret"); err != nil {

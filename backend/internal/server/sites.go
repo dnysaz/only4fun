@@ -79,7 +79,9 @@ func SiteHandler(cfg *config.Config, projectStore *database.ProjectStore, pm *Pr
 				c.File(indexPath)
 				return
 			}
-			releasesDir := filepath.Join(filepath.Dir(sitesDir), ".releases", subdomain)
+			// Release disimpan di <sitesDir>/.releases/<subdomain>/<release>,
+			// sama seperti yang dibuat builder.publish().
+			releasesDir := filepath.Join(sitesDir, ".releases", subdomain)
 			if entries, err := os.ReadDir(releasesDir); err == nil && len(entries) > 0 {
 				latest := entries[len(entries)-1].Name()
 				indexPath = filepath.Join(releasesDir, latest, "index.html")
