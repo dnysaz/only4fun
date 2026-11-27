@@ -77,6 +77,8 @@ anyone's launchpad.
 │   │   └── server/               Router, middleware, rate limits, static site serving
 │   ├── scripts/backup-db.sh      SQLite backup helper
 │   └── data/                     Local runtime data (git-kept placeholder only)
+├── docs/
+│   └── PRODUCTION.md             Production checklist, isolation, backup and incident runbook
 ├── frontend/
 │   ├── public/favicon.svg        Four-dot favicon
 │   ├── public/og-image.png       Social sharing card (1200 × 630)
@@ -215,7 +217,7 @@ Backend endpoints:
 
 | Group | Endpoints |
 | --- | --- |
-| Public | `GET /health`, `GET /metrics`, `POST /webhooks/github` |
+| Public | `GET /health`, `GET /ready` (readiness), `GET /metrics` (loopback only), `POST /webhooks/github` |
 | Instant | `POST /api/instant/address`, `POST /api/instant/repo-tree`, `POST /api/instant/repo`, `POST /api/instant/zip` |
 | Auth | `GET /auth/github/login`, `GET /auth/github/callback`, `GET /api/auth/me`, `POST /api/auth/logout` (optional `{"all": true}` or `?all=true` to revoke every session) |
 | Projects | `GET/POST /api/projects`, `GET/DELETE /api/projects/:id`, `POST /api/projects/upload`, `POST /api/projects/:id/deploy`, `GET/PUT /api/projects/:id/domain`, `GET /api/projects/:id/domain/status`, `GET /api/projects/:id/env`, `GET /api/projects/:id/repo`, `GET /api/projects/:id/webhook` |
@@ -243,6 +245,10 @@ Backend endpoints:
 - Public endpoints are protected by a trusted-origin guard and per-IP rate limits.
   Uploads are size-limited and checked for path traversal and symlinks; GitHub URLs
   are validated before cloning, and SQL queries are parameterized.
+- Every response carries `X-Request-ID`; JSON request logs and the `audit_logs`
+  table use the same ID for investigations.
+- See [`docs/PRODUCTION.md`](docs/PRODUCTION.md) for the production checklist,
+  build/SSR isolation, WAF/Turnstile guidance, backup/restore testing and incident runbook.
 
 ## License
 
