@@ -291,14 +291,17 @@ func TestSiteHandlerNotFoundPageIncludesBrandedLayout(t *testing.T) {
 	}
 	body := rec.Body.String()
 	for _, want := range []string{
-		"This site isn’t here.",
+		"This site",
+		"isn’t here.",
 		"custom domain changed",
 		"missing.only4.fun",
-		"Main navigation",
+		"nav-arrow",
 		"Start a new project",
 		"Only4",
 		"Push, build, live.",
+		"cluster-spin",
 		"https://only4.fun/deploy",
+		"classList.add('scrolled')",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("body does not contain %q", want)
