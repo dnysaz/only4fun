@@ -8,6 +8,7 @@
   import { navigate } from './router.svelte.js';
   import { logout } from './authActions.js';
   import { workspace, ensureWorkspace, reload } from './workspace.svelte.js';
+  import { visibility } from './visibility.svelte.js';
 
   let {
     view = 'projects',
@@ -31,9 +32,10 @@
     ensureWorkspace();
   });
 
-  // Selama ada build berjalan, cek status tiap 5 detik.
+  // Selama ada build berjalan, cek status tiap 5 detik. Berhenti saat tab
+  // tersembunyi supaya tidak membuang request/CPU di latar belakang.
   $effect(() => {
-    if (!building || !session.user) return;
+    if (!building || !session.user || !visibility.visible) return;
     const timer = setInterval(() => reload({ quiet: true }), 5000);
     return () => clearInterval(timer);
   });

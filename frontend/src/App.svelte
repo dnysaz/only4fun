@@ -18,8 +18,10 @@
   import { loadSession, revalidateSession } from './lib/session.svelte.js';
   import { logout } from './lib/authActions.js';
   import { updateSeo } from './lib/seo.js';
+  import { watchPageVisibility } from './lib/visibility.svelte.js';
 
   onMount(() => {
+    const stopVisibility = watchPageVisibility();
     loadSession();
 
     // Tab yang dibiarkan semalaman atau perpindah halaman harus memastikan
@@ -33,6 +35,7 @@
 
     document.addEventListener('visibilitychange', onVisible);
     return () => {
+      stopVisibility();
       window.clearInterval(idleTimer);
       document.removeEventListener('visibilitychange', onVisible);
     };

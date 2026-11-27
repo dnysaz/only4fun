@@ -9,6 +9,7 @@
   import { session } from './session.svelte.js';
   import { navigate, getRoute } from './router.svelte.js';
   import { reload } from './workspace.svelte.js';
+  import { visibility } from './visibility.svelte.js';
 
   const KEY = /^[A-Za-z_][A-Za-z0-9_]*$/;
   const CNAME_TARGET = import.meta.env.VITE_CUSTOM_DOMAIN_CNAME || 'customers.only4.fun';
@@ -267,6 +268,7 @@
   $effect(() => {
     const running =
       !!session.user &&
+      visibility.visible &&
       (livePolling ||
         deployments.some(isRunning) ||
         project?.status === 'pending' ||
@@ -401,7 +403,7 @@
   }
 
   $effect(() => {
-    if (!session.user || !project?.custom_domain || domainState === 'active') {
+    if (!session.user || !visibility.visible || !project?.custom_domain || domainState === 'active') {
       if (domainStatusTimer) {
         window.clearInterval(domainStatusTimer);
         domainStatusTimer = null;
