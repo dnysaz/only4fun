@@ -15,6 +15,23 @@ import (
 	"only4.fun/backend/internal/secure"
 )
 
+func TestSSRProxyTimeouts(t *testing.T) {
+	proxy := newSSRProxy(4123)
+	transport, ok := proxy.Transport.(*http.Transport)
+	if !ok {
+		t.Fatalf("proxy transport = %T, want *http.Transport", proxy.Transport)
+	}
+	if transport.DialContext == nil {
+		t.Error("proxy has no dial timeout")
+	}
+	if transport.TLSHandshakeTimeout <= 0 || transport.ResponseHeaderTimeout <= 0 {
+		t.Errorf("proxy timeouts are not configured: %+v", transport)
+	}
+	if proxy.FlushInterval >= 0 {
+		t.Errorf("FlushInterval = %v, want negative (flush immediately) for streaming", proxy.FlushInterval)
+	}
+}
+
 func TestServerEntryForProject(t *testing.T) {
 	root := t.TempDir()
 	if err := os.WriteFile(filepath.Join(root, "server.js"), []byte("console.log(1)"), 0o644); err != nil {

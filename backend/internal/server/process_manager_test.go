@@ -4,9 +4,29 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 )
+
+func TestSSREnvForcesLoopback(t *testing.T) {
+	env := ssrEnv(4321)
+	for _, want := range []string{
+		"PORT=4321",
+		"HOST=127.0.0.1",
+		"BIND=127.0.0.1",
+		"LISTEN_ADDRESS=127.0.0.1",
+	} {
+		if !slices.Contains(env, want) {
+			t.Fatalf("ssrEnv missing %q: %v", want, env)
+		}
+	}
+	for _, leaked := range []string{"0.0.0.0", "::"} {
+		if slices.Contains(env, "HOST="+leaked) || slices.Contains(env, "BIND="+leaked) {
+			t.Fatalf("ssrEnv exposes public bind address: %v", env)
+		}
+	}
+}
 
 // TestStartDoesNotBlockOtherSubdomains memastikan masa readiness (maksimal
 // 10 detik) tidak memegang kunci global ProcessManager.

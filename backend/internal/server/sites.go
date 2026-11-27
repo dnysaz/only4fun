@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -207,18 +208,30 @@ func packageHasStartScript(root string) bool {
 	return ok
 }
 
-// proxyToPort mem-proxy request ke port tertentu.
-func proxyToPort(c *gin.Context, port int) {
+// newSSRProxy menyiapkan reverse proxy ke proses SSR dengan timeout yang
+// jelas. FlushInterval penting untuk response streaming (SSE/Next.js).
+func newSSRProxy(port int) *httputil.ReverseProxy {
 	target, _ := url.Parse(fmt.Sprintf("http://127.0.0.1:%d", port))
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	proxy.Transport = &http.Transport{
+	transport := &http.Transport{
+		DialContext:           (&net.Dialer{Timeout: 2 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
+		TLSHandshakeTimeout:   5 * time.Second,
 		ResponseHeaderTimeout: 30 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		MaxIdleConnsPerHost:   16,
 	}
+	proxy.Transport = transport
+	proxy.FlushInterval = -1 // flush segera, cocok untuk SSE/chunked response.
 	proxy.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
 		w.WriteHeader(http.StatusBadGateway)
 		w.Write([]byte("server error"))
 	}
-	proxy.ServeHTTP(c.Writer, c.Request)
+	return proxy
+}
+
+// proxyToPort mem-proxy request ke port tertentu.
+func proxyToPort(c *gin.Context, port int) {
+	newSSRProxy(port).ServeHTTP(c.Writer, c.Request)
 }
 
 // serveStatic melayani file statis dari folder project.

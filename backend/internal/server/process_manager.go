@@ -181,6 +181,19 @@ func (pm *ProcessManager) Start(subdomain, serverEntry string) (int, error) {
 	return p.Port, nil
 }
 
+// ssrEnv memberi proses Node.js hanya environment minimum. PORT dibedakan per
+// proses, sedangkan alamat bind dipaksa ke loopback: framework user boleh saja
+// mengabaikan PORT, tetapi tidak boleh membuka port ke jaringan publik.
+func ssrEnv(port int) []string {
+	env := execenv.Base("")
+	return append(env,
+		fmt.Sprintf("PORT=%d", port),
+		"HOST=127.0.0.1",
+		"BIND=127.0.0.1",
+		"LISTEN_ADDRESS=127.0.0.1",
+	)
+}
+
 // startProcess menyalakan satu proses Node.js dan menunggu port-nya siap.
 // Kunci global hanya dipakai saat mencatat/membebaskan port, bukan saat
 // menunggu readiness, supaya subdomain lain tetap bisa dilayani.
@@ -199,7 +212,7 @@ func (pm *ProcessManager) startProcess(subdomain, serverEntry string) (*Process,
 		return nil, fmt.Errorf("failed to prepare SSR home: %w", err)
 	}
 	cmd := exec.Command("node", serverEntry)
-	cmd.Env = append(execenv.Base(""), fmt.Sprintf("PORT=%d", port))
+	cmd.Env = ssrEnv(port)
 	cmd.Dir = filepath.Dir(serverEntry)
 
 	// Redirect output ke log

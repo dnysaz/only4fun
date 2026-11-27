@@ -9,11 +9,14 @@ func TestWithUserEnvCannotOverrideInternalValues(t *testing.T) {
 	t.Setenv("PATH", "/server/bin")
 	base := Base("/tmp/only4-fun-home")
 	env := strings.Join(WithUserEnv(base, map[string]string{
-		"PATH":         "/tmp/evil",
-		"HOME":         "/tmp/evil",
-		"LD_PRELOAD":   "/tmp/evil.so",
-		"NODE_OPTIONS": "--require /tmp/evil.js",
-		"SUPABASE_URL": "https://example.supabase.co",
+		"PATH":           "/tmp/evil",
+		"HOME":           "/tmp/evil",
+		"LD_PRELOAD":     "/tmp/evil.so",
+		"NODE_OPTIONS":   "--require /tmp/evil.js",
+		"HOST":           "0.0.0.0",
+		"BIND":           "0.0.0.0",
+		"LISTEN_ADDRESS": "0.0.0.0",
+		"SUPABASE_URL":   "https://example.supabase.co",
 	}), "\n")
 
 	if !strings.Contains(env, "PATH=/server/bin") {
@@ -25,7 +28,7 @@ func TestWithUserEnvCannotOverrideInternalValues(t *testing.T) {
 	if !strings.Contains(env, "SUPABASE_URL=https://example.supabase.co") {
 		t.Errorf("valid user env var was dropped: %s", env)
 	}
-	for _, needle := range []string{"/tmp/evil", "LD_PRELOAD=", "NODE_OPTIONS="} {
+	for _, needle := range []string{"/tmp/evil", "LD_PRELOAD=", "NODE_OPTIONS=", "0.0.0.0"} {
 		if strings.Contains(env, needle) {
 			t.Errorf("WithUserEnv leaked %q", needle)
 		}
