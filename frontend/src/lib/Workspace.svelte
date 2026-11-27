@@ -4,9 +4,10 @@
   import Nav from './Nav.svelte';
   import Footer from './Footer.svelte';
   import { api } from './api.js';
-  import { session, signOut } from './session.svelte.js';
+  import { session } from './session.svelte.js';
   import { navigate } from './router.svelte.js';
-  import { workspace, ensureWorkspace, reload, resetWorkspace } from './workspace.svelte.js';
+  import { logout } from './authActions.js';
+  import { workspace, ensureWorkspace, reload } from './workspace.svelte.js';
 
   let {
     view = 'projects',
@@ -40,12 +41,6 @@
   function go(event, path) {
     event.preventDefault();
     navigate(path);
-  }
-
-  async function logout() {
-    await signOut();
-    resetWorkspace();
-    navigate('/');
   }
 </script>
 

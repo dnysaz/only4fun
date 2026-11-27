@@ -16,6 +16,7 @@
   import { Loading } from './lib/loading.ts';
   import { getInfoPage } from './lib/infoPages.js';
   import { loadSession, revalidateSession } from './lib/session.svelte.js';
+  import { logout } from './lib/authActions.js';
   import { updateSeo } from './lib/seo.js';
 
   onMount(() => {
@@ -56,12 +57,12 @@
   <ProjectDetail />
 {:else if getInfoPage(getRoute())}
   <div class="wrap">
-    <Nav />
+    <Nav onSignOut={logout} />
   </div>
   <InfoPage page={getRoute()} />
 {:else}
   <div class="wrap">
-    <Nav />
+    <Nav onSignOut={logout} />
   </div>
 
   <Hero />

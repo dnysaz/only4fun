@@ -1,6 +1,7 @@
 <script>
   import Icon from './Icon.svelte';
   import { navigate } from './router.svelte.js';
+  import { safeHttpUrl } from './urls.js';
 
   let { project } = $props();
 
@@ -12,7 +13,7 @@
   };
 
   let meta = $derived(STATUS[project.status] ?? { label: project.status, tone: 'blue', icon: 'world' });
-  let url = $derived(project.deploy_url || `https://${project.subdomain}.only4.fun`);
+  let url = $derived(safeHttpUrl(project.deploy_url || `https://${project.subdomain}.only4.fun`));
   let repo = $derived(
     project.repo_url?.startsWith('zip://')
       ? 'Uploaded ZIP'
@@ -63,12 +64,21 @@
   </div>
 
   <div class="actions">
-    <a class="btn open" href={url} target="_blank" rel="noreferrer">
-      Open
-      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M7 17L17 7" /><path d="M8 7h9v9" />
-      </svg>
-    </a>
+    {#if url}
+      <a class="btn open" href={url} target="_blank" rel="noopener noreferrer">
+        Open
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M7 17L17 7" /><path d="M8 7h9v9" />
+        </svg>
+      </a>
+    {:else}
+      <span class="btn open" aria-disabled="true">
+        Open
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M7 17L17 7" /><path d="M8 7h9v9" />
+        </svg>
+      </span>
+    {/if}
   </div>
 </article>
 
