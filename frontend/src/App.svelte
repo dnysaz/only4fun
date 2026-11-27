@@ -12,7 +12,8 @@
   import ProjectDetail from './lib/ProjectDetail.svelte';
   import InstantDeploy from './lib/InstantDeploy.svelte';
   import InfoPage from './lib/InfoPage.svelte';
-  import { getRoute } from './lib/router.svelte.js';
+  import { getRoute, navigation } from './lib/router.svelte.js';
+  import { Loading } from './lib/loading.ts';
   import { getInfoPage } from './lib/infoPages.js';
   import { loadSession, revalidateSession } from './lib/session.svelte.js';
   import { updateSeo } from './lib/seo.js';
@@ -60,3 +61,27 @@
   <Cta />
   <Footer />
 {/if}
+
+{#if navigation.loading}
+  <div class="route-loading">
+    <Loading label="loading page…" size={16} inline />
+  </div>
+{/if}
+
+<style>
+  .route-loading {
+    position: fixed;
+    left: 50%;
+    bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+    z-index: 80;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    padding: 11px 18px;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    background: var(--bg);
+    font-size: 13px;
+    color: var(--muted);
+  }
+</style>

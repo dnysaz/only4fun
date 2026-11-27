@@ -1,5 +1,6 @@
 <script>
   import { api } from './api.js';
+  import { Loading } from './loading.ts';
   import { navigate } from './router.svelte.js';
   import Nav from './Nav.svelte';
   import Footer from './Footer.svelte';
@@ -272,11 +273,13 @@
                 <span class="address-label">Your address</span>
                 <span class="address-line">
                   <span class="address-value" title={preview.url}
-                    >{preview.loading
-                      ? 'generating…'
-                      : preview.subdomain
-                        ? `${preview.subdomain}.only4.fun`
-                        : '········.only4.fun'}</span
+                    >{#if preview.loading}
+                      <Loading label="generating…" size={12} inline />
+                    {:else if preview.subdomain}
+                      {preview.subdomain}.only4.fun
+                    {:else}
+                      ········.only4.fun
+                    {/if}</span
                   >
                   {#if preview.subdomain && !preview.loading}
                     <button
@@ -339,7 +342,11 @@
             {/if}
 
             <button class="submit" type="submit" disabled={launchDisabled}>
-              {submitting ? 'Launching…' : 'Launch Now!'}
+              {#if submitting}
+                <Loading label="Launching…" size={14} inline />
+              {:else}
+                Launch Now!
+              {/if}
               {#if !submitting && !launchDisabled}
                 <svg
                   viewBox="0 0 24 24"
@@ -363,7 +370,13 @@
             <div class="tree-head">
               <span>File tree</span>
               <span class="tree-count">
-                {tree.loading ? 'Reading…' : tree.error ? 'Unavailable' : `${fileCount} files`}
+                {#if tree.loading}
+                  <Loading label="Reading…" size={12} inline />
+                {:else if tree.error}
+                  Unavailable
+                {:else}
+                  {fileCount} files
+                {/if}
               </span>
             </div>
 
@@ -372,7 +385,7 @@
                 Paste a GitHub link or choose a ZIP to see its files here.
               </div>
             {:else if tree.loading}
-              <div class="tree-empty">Reading files…</div>
+              <div class="tree-empty"><Loading label="Reading files…" size={22} /></div>
             {:else if tree.error}
               <p class="tree-error" role="status">{tree.error}</p>
               <p class="tree-note">Launch is disabled until the file list can be read.</p>

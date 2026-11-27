@@ -1,6 +1,7 @@
 <script>
   import { onDestroy } from 'svelte';
   import Workspace from './Workspace.svelte';
+  import { Loading } from './loading.ts';
   import ConfirmDialog from './ConfirmDialog.svelte';
   import { api } from './api.js';
   import { session } from './session.svelte.js';
@@ -411,12 +412,16 @@
   }
 </script>
 
-<Workspace view="projects" compact={true} crumb={project?.subdomain ?? ''}>
+<Workspace
+  view="projects"
+  compact={true}
+  crumb={project?.subdomain ?? ''}
+  loadingLabel="loading project details…"
+>
   {#snippet children()}
     {#if loading || !project}
       <section class="splash">
-        <span class="loading">···</span>
-        <p>loading project details…</p>
+        <Loading label="loading project details…" size={30} />
       </section>
     {:else}
       <section class="detail-head">
@@ -536,15 +541,31 @@
           <div class="domain-row">
             <input bind:value={domain} placeholder="www.example.com" aria-label="Custom domain" />
             <button type="button" class="btn" onclick={saveDomain} disabled={savingDomain}>
-              {savingDomain ? 'Saving…' : 'Save domain'}
+              {#if savingDomain}
+                <Loading label="Saving…" size={12} inline />
+              {:else}
+                Save domain
+              {/if}
             </button>
           </div>
           {#if project?.custom_domain}
             <div class="domain-status {DOMAIN_STATE_TONE[domainState] ?? 'red'}">
               <span class="status-dot" aria-hidden="true"></span>
               <div>
-                <b>{DOMAIN_STATE_LABEL[domainState] ?? 'Checking…'}</b>
-                <span>{domainStatusMessage || 'Checking the domain status…'}</span>
+                <b>
+                  {#if checkingDomain || (!domainState && !domainStatusMessage)}
+                    <Loading label="Checking…" size={12} inline />
+                  {:else}
+                    {DOMAIN_STATE_LABEL[domainState] ?? 'Checking…'}
+                  {/if}
+                </b>
+                <span>
+                  {#if !domainStatusMessage}
+                    <Loading label="Checking the domain status…" size={12} inline />
+                  {:else}
+                    {domainStatusMessage}
+                  {/if}
+                </span>
               </div>
               {#if domainState !== 'active'}
                 <button
@@ -555,7 +576,11 @@
                   aria-label="Check domain status again"
                 >
                   <span aria-hidden="true">↻</span>
-                  {checkingDomain ? 'Checking…' : 'Check again'}
+                  {#if checkingDomain}
+                    <Loading label="Checking…" size={12} inline />
+                  {:else}
+                    Check again
+                  {/if}
                 </button>
               {/if}
             </div>
@@ -616,7 +641,7 @@
                     </span>
                   </summary>
                   <div class="log-box">
-                    <pre>{dep.log || (isRunning(dep) ? 'Waiting for the first build step…' : 'No log recorded.')}</pre>
+                    <pre>{#if dep.log}{dep.log}{:else if isRunning(dep)}<Loading label="Waiting for the first build step…" size={12} inline />{:else}No log recorded.{/if}</pre>
                     <div class="log-actions">
                       <button
                         type="button"
@@ -679,7 +704,11 @@
         <div class="env-actions">
           <button type="button" onclick={addEnv}>+ Add variable</button>
           <button type="button" class="btn" onclick={saveEnv} disabled={savingEnv}>
-            {savingEnv ? 'Saving…' : 'Save variables'}
+            {#if savingEnv}
+              <Loading label="Saving…" size={12} inline />
+            {:else}
+              Save variables
+            {/if}
           </button>
         </div>
       </section>
@@ -713,17 +742,6 @@
     place-items: center;
     gap: 16px;
     padding: 120px 0;
-  }
-
-  .loading {
-    color: var(--blue);
-    font: 700 42px/1 'DM Mono', monospace;
-    letter-spacing: 0.2em;
-  }
-
-  .splash p {
-    color: var(--muted);
-    font: 500 15px/1 'DM Mono', monospace;
   }
 
   .detail-head {

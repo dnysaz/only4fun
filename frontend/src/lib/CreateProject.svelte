@@ -1,5 +1,6 @@
 <script>
   import { api } from './api.js';
+  import { Loading } from './loading.ts';
   import { sanitize, validateName } from './subdomain.js';
   import { buildTreeRows, normalizeTreePaths } from './fileTree.js';
   import { listZipPaths } from './zipTree.js';
@@ -359,7 +360,11 @@
                 <div class="picker-head">
                   <span>Your repositories</span>
                   <span class="picker-count">
-                    {repoLoading ? 'Loading…' : `${repoList.length} available`}
+                    {#if repoLoading}
+                      <Loading label="Loading…" size={12} inline />
+                    {:else}
+                      {repoList.length} available
+                    {/if}
                   </span>
                 </div>
 
@@ -384,7 +389,7 @@
                     <button type="button" class="quiet" onclick={() => loadRepos()}>Retry</button>
                   </p>
                 {:else if repoLoading}
-                  <p class="picker-empty">Loading your repositories…</p>
+                  <p class="picker-empty"><Loading label="Loading your repositories…" size={14} inline /></p>
                 {:else if repoList.length === 0}
                   <p class="picker-empty">No repositories found on this GitHub account.</p>
                 {:else if filteredRepos.length === 0}
@@ -392,7 +397,11 @@
                     No match in loaded repositories.
                     {#if repoHasMore}
                       <button type="button" class="quiet" onclick={() => loadRepos({ append: true })} disabled={repoLoadingMore}>
-                        {repoLoadingMore ? 'Loading…' : 'Load more'}
+                        {#if repoLoadingMore}
+                          <Loading label="Loading…" size={12} inline />
+                        {:else}
+                          Load more
+                        {/if}
                       </button>
                     {/if}
                   </p>
@@ -419,7 +428,11 @@
                   </ul>
                   {#if repoHasMore}
                     <button type="button" class="quiet load-more" onclick={() => loadRepos({ append: true })} disabled={repoLoadingMore}>
-                      {repoLoadingMore ? 'Loading more…' : 'Load more repositories'}
+                      {#if repoLoadingMore}
+                        <Loading label="Loading more…" size={12} inline />
+                      {:else}
+                        Load more repositories
+                      {/if}
                     </button>
                   {/if}
                 {/if}
@@ -458,7 +471,7 @@
           class:ok={check.available === true}
           class:bad={check.available === false || (!nameCheck.ok && !!name)}
         >
-          <span class="dot" aria-hidden="true"></span>
+          {#if !check.checking}<span class="dot" aria-hidden="true"></span>{/if}
           {#if !name}
             Pick a name — letters, numbers and hyphens.
           {:else if !nameCheck.ok}
@@ -472,7 +485,7 @@
                     ? "Can't start or end with a hyphen."
                     : ''}
           {:else if check.checking}
-            Checking availability…
+            <Loading label="Checking availability…" size={12} inline />
           {:else if check.available === true}
             {name}.only4.fun is available.
           {:else if check.available === false}
@@ -563,7 +576,11 @@
         {/if}
 
         <button class="submit" type="submit" disabled={!canSubmit}>
-          {submitting ? 'Starting…' : 'Start deploy'}
+          {#if submitting}
+            <Loading label="Starting…" size={14} inline />
+          {:else}
+            Start deploy
+          {/if}
           {#if !submitting}
             <svg
               viewBox="0 0 24 24"
@@ -587,14 +604,20 @@
         <div class="tree-head">
           <span>File tree</span>
           <span class="tree-count">
-            {tree.loading ? 'Reading…' : tree.error ? 'Unavailable' : `${fileCount} files`}
+            {#if tree.loading}
+              <Loading label="Reading…" size={12} inline />
+            {:else if tree.error}
+              Unavailable
+            {:else}
+              {fileCount} files
+            {/if}
           </span>
         </div>
 
         {#if !sourceValid}
           <div class="tree-empty">Paste a GitHub link or choose a ZIP to see its files here.</div>
         {:else if tree.loading}
-          <div class="tree-empty">Reading files…</div>
+          <div class="tree-empty"><Loading label="Reading files…" size={22} /></div>
         {:else if tree.error}
           <p class="tree-error" role="status">{tree.error}</p>
           <p class="tree-note">The preview is unavailable, but you can still deploy.</p>

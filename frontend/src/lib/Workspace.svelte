@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import Dots from './Dots.svelte';
+  import { Loading } from './loading.ts';
   import Nav from './Nav.svelte';
   import Footer from './Footer.svelte';
   import { api } from './api.js';
@@ -8,7 +8,13 @@
   import { navigate } from './router.svelte.js';
   import { workspace, ensureWorkspace, reload, resetWorkspace } from './workspace.svelte.js';
 
-  let { view = 'projects', compact = false, crumb = '', children } = $props();
+  let {
+    view = 'projects',
+    compact = false,
+    crumb = '',
+    loadingLabel = 'waking up your launchpad…',
+    children,
+  } = $props();
 
   let total = $derived(workspace.projects.length);
   let live = $derived(workspace.projects.filter((p) => p.status === 'deployed').length);
@@ -48,8 +54,7 @@
 
   {#if session.loading || (workspace.loading && !workspace.projects.length)}
     <section class="splash">
-      <span class="loading"><Dots size={30} /></span>
-      <p>waking up your launchpad…</p>
+      <Loading label={loadingLabel} size={30} />
     </section>
   {:else if !session.user}
     <section class="gate">
@@ -130,20 +135,6 @@
     place-items: center;
     gap: 20px;
     padding: 130px 0;
-  }
-
-  .loading {
-    animation: wobble 1.6s ease-in-out infinite;
-  }
-
-  @keyframes wobble {
-    0%, 100% { transform: rotate(-8deg) scale(1); }
-    50% { transform: rotate(8deg) scale(1.08); }
-  }
-
-  .splash p {
-    color: var(--muted);
-    font: 500 16px/1 'DM Mono', monospace;
   }
 
   /* Sama seperti homepage: pill border tipis + dot, highlight kuning, tombol biru. */
@@ -360,11 +351,5 @@
     }
 
     .building { margin-left: 0; }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .loading {
-      animation: none;
-    }
   }
 </style>

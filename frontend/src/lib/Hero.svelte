@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import Dots from './Dots.svelte';
   import { api } from './api.js';
+  import { Loading } from './loading.ts';
   import { session } from './session.svelte.js';
   import { navigate } from './router.svelte.js';
   import { MAX_LENGTH, sanitize, validateName } from './subdomain.js';
@@ -76,7 +77,7 @@
     if (!session.user) {
       return { text: `${name}.only4.fun looks good. Sign in to claim it.`, tone: 'ok' };
     }
-    if (server.checking) return { text: 'Checking availability…', tone: '' };
+    if (server.checking) return { text: '', tone: '', checking: true };
     if (server.available === false) return { text: server.error, tone: 'bad' };
     if (server.error) return { text: server.error, tone: 'bad' };
     if (server.available === true) return { text: `${name}.only4.fun is available.`, tone: 'ok' };
@@ -169,7 +170,13 @@
                 </svg>
               </button>
             </form>
-            <div class="status {status.tone}" aria-live="polite">{status.text}</div>
+            <div class="status {status.tone}" aria-live="polite">
+              {#if status.checking}
+                <Loading label="Checking availability…" size={12} inline />
+              {:else}
+                {status.text}
+              {/if}
+            </div>
             <a class="instant-link" href="/instant" onclick={goInstant}
               >No account? Deploy a static site instantly →</a
             >

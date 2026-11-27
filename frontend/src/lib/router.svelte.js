@@ -14,13 +14,28 @@ function currentPath() {
 let path = $state(currentPath());
 let query = $state(new URLSearchParams(window.location.search));
 
+// Indikator transisi antar halaman dipakai bersama oleh App.svelte.
+export const navigation = $state({ loading: false });
+let loadingTimer;
+
 function sync() {
   path = currentPath();
   query = new URLSearchParams(window.location.search);
 }
 
+function flashNavigation() {
+  navigation.loading = true;
+  clearTimeout(loadingTimer);
+  loadingTimer = setTimeout(() => {
+    navigation.loading = false;
+  }, 520);
+}
+
 if (typeof window !== 'undefined') {
-  window.addEventListener('popstate', sync);
+  window.addEventListener('popstate', () => {
+    sync();
+    flashNavigation();
+  });
 }
 
 export function getRoute() {
@@ -40,4 +55,6 @@ export function navigate(to, { replace = false } = {}) {
   else history.pushState({}, '', target);
   sync();
   window.scrollTo({ top: 0, behavior: 'instant' });
+
+  flashNavigation();
 }
