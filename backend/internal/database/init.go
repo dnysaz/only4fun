@@ -10,13 +10,20 @@ import (
 
 // Init menginisialisasi koneksi database SQLite.
 func Init(dbPath string) (*Database, error) {
-	// SQLite menonaktifkan foreign key secara default. Set lewat DSN supaya
-	// setiap koneksi (termasuk yang dibuat ulang pool) tetap patuh FK.
+	// Set lewat DSN supaya setiap koneksi (termasuk yang dibuat ulang pool)
+	// tetap patuh FK dan memakai WAL. WAL + synchronous=NORMAL mengurangi
+	// fsync per commit, sehingga deploy history/build log lebih ringan.
 	dsn := dbPath
+	params := strings.Join([]string{
+		"_foreign_keys=on",
+		"_journal_mode=WAL",
+		"_busy_timeout=5000",
+		"_synchronous=NORMAL",
+	}, "&")
 	if strings.Contains(dsn, "?") {
-		dsn += "&_foreign_keys=on"
+		dsn += "&" + params
 	} else {
-		dsn += "?_foreign_keys=on"
+		dsn += "?" + params
 	}
 
 	db, err := sqlx.Open("sqlite3", dsn)
@@ -29,9 +36,16 @@ func Init(dbPath string) (*Database, error) {
 	}
 
 	// Pastikan juga untuk driver/versi yang mengabaikan flag DSN.
-	if _, err := db.Exec("PRAGMA foreign_keys = ON"); err != nil {
-		_ = db.Close()
-		return nil, fmt.Errorf("failed to enable foreign keys: %w", err)
+	for _, pragma := range []string{
+		"PRAGMA foreign_keys = ON",
+		"PRAGMA journal_mode = WAL",
+		"PRAGMA busy_timeout = 5000",
+		"PRAGMA synchronous = NORMAL",
+	} {
+		if _, err := db.Exec(pragma); err != nil {
+			_ = db.Close()
+			return nil, fmt.Errorf("failed to apply %s: %w", pragma, err)
+		}
 	}
 
 	// Atur pooling dan keamanan
