@@ -4,6 +4,8 @@
   import { Loading } from './loading.ts';
   import ConfirmDialog from './ConfirmDialog.svelte';
   import { api } from './api.js';
+  import { copyText } from './clipboard.js';
+  import { safeHttpUrl } from './urls.js';
   import { session } from './session.svelte.js';
   import { navigate, getRoute } from './router.svelte.js';
   import { reload } from './workspace.svelte.js';
@@ -11,7 +13,8 @@
   const KEY = /^[A-Za-z_][A-Za-z0-9_]*$/;
   const CNAME_TARGET = import.meta.env.VITE_CUSTOM_DOMAIN_CNAME || 'customers.only4.fun';
   const HISTORY_PAGE = 3;
-  const HISTORY_MAX = 6;
+  // Backend returns up to 20 deployments; older releases must stay restorable.
+  const HISTORY_MAX = 20;
   const STATUS = {
     deployed: { label: 'Live', tone: 'green' },
     building: { label: 'Building', tone: 'yellow' },
@@ -76,6 +79,7 @@
   let domainState = $state('none');
   let domainStatusMessage = $state('');
   let domainStatusTimer = null;
+  let domainStatusToken = 0;
   let checkingDomain = $state(false);
   let busy = $state(false);
 
@@ -90,6 +94,7 @@
   let showDelete = $state(false);
   let deleting = $state(false);
   let copiedLog = $state('');
+  let copyErrorFor = $state('');
 
   // Live build log: poll the deployment record while a build is running.
   let livePolling = $state(false);
@@ -99,7 +104,10 @@
   let loadedFor = '';
 
   let meta = $derived(STATUS[project?.status] ?? { label: project?.status ?? '—', tone: 'blue' });
-  let url = $derived(project ? (project.deploy_url || `https://${project.subdomain}.only4.fun`) : '');
+  let url = $derived(
+    safeHttpUrl(project ? (project.deploy_url || `https://${project.subdomain}.only4.fun`) : ''),
+  );
+  let domainUrl = $derived(safeHttpUrl(project?.custom_domain ? `https://${project.custom_domain}` : ''));
   let repo = $derived(
     project?.repo_url?.startsWith('zip://')
       ? 'Uploaded ZIP'
@@ -109,11 +117,11 @@
   let visitDays = $derived.by(() => {
     const counts = new Map((project?.visits ?? []).map((v) => [v.day, Number(v.count) || 0]));
     const days = [];
-    const today = new Date();
+    const now = new Date();
+    // Backend buckets visits with SQLite's UTC date('now'); use UTC keys too.
+    const todayUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
     for (let i = 13; i >= 0; i -= 1) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
+      const key = new Date(todayUTC - i * 86_400_000).toISOString().slice(0, 10);
       days.push({ day: key, count: counts.get(key) ?? 0 });
     }
     return days;
@@ -216,6 +224,10 @@
     domain = '';
     domainState = 'none';
     domainStatusMessage = '';
+    domainStatusToken += 1;
+    checkingDomain = false;
+    copiedLog = '';
+    copyErrorFor = '';
     notice = '';
     error = '';
     livePolling = false;
@@ -359,7 +371,10 @@
       notice = project.custom_domain ? 'Custom domain saved.' : 'Custom domain removed.';
       // Cloudflare custom hostnames are best effort; surface when SSL is not automatic.
       domainWarning = data?.warning ?? '';
-      loadDomainStatus();
+      // Leave the "active" state so the poll restarts for the new hostname.
+      domainState = 'pending';
+      domainStatusMessage = '';
+      loadDomainStatus({ force: true });
     } catch (err) {
       error = err?.message ?? 'Could not save the custom domain';
     } finally {
@@ -367,18 +382,21 @@
     }
   }
 
-  async function loadDomainStatus() {
-    if (!session.user || !id || checkingDomain) return;
+  async function loadDomainStatus({ force = false } = {}) {
+    if (!session.user || !id || (checkingDomain && !force)) return;
+    const token = ++domainStatusToken;
     checkingDomain = true;
     try {
       const data = await api.domainStatus(id);
+      if (token !== domainStatusToken) return;
       domainState = data?.state ?? 'unknown';
       domainStatusMessage = data?.message ?? '';
     } catch {
+      if (token !== domainStatusToken) return;
       domainState = 'unknown';
       domainStatusMessage = 'Could not check the domain status right now.';
     } finally {
-      checkingDomain = false;
+      if (token === domainStatusToken) checkingDomain = false;
     }
   }
 
@@ -397,26 +415,13 @@
     event.preventDefault();
     event.stopPropagation();
 
-    const value = log || 'No log recorded.';
-    try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(value);
-      } else {
-        const helper = document.createElement('textarea');
-        helper.value = value;
-        helper.style.position = 'fixed';
-        helper.style.opacity = '0';
-        document.body.appendChild(helper);
-        helper.select();
-        document.execCommand('copy');
-        helper.remove();
-      }
-      copiedLog = deploymentId;
+    const ok = await copyText(log || 'No log recorded.');
+    copiedLog = ok ? deploymentId : '';
+    copyErrorFor = ok ? '' : deploymentId;
+    if (ok) {
       setTimeout(() => {
         if (copiedLog === deploymentId) copiedLog = '';
       }, 1600);
-    } catch {
-      copiedLog = '';
     }
   }
 
@@ -454,22 +459,35 @@
           <p class="eyebrow"><span class="pulse" aria-hidden="true"></span>{meta.label} project</p>
           <h1>{project.subdomain}<span class="hl">.</span></h1>
           <p class="lead">
-            <a href={url} target="_blank" rel="noreferrer">
-              {url}
-              <svg class="ext-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M7 17 17 7" /><path d="M8 7h9v9" />
-              </svg>
-            </a>
+            {#if url}
+              <a href={url} target="_blank" rel="noopener noreferrer">
+                {url}
+                <svg class="ext-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M7 17 17 7" /><path d="M8 7h9v9" />
+                </svg>
+              </a>
+            {:else}
+              {project.deploy_url || `${project.subdomain}.only4.fun`}
+            {/if}
           </p>
         </div>
         <div class="head-actions">
           <span class="tag {meta.tone}"><i></i>{meta.label}</span>
-          <a class="btn" href={url} target="_blank" rel="noreferrer">
-            Open site
-            <svg class="ext-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M7 17 17 7" /><path d="M8 7h9v9" />
-            </svg>
-          </a>
+          {#if url}
+            <a class="btn" href={url} target="_blank" rel="noopener noreferrer">
+              Open site
+              <svg class="ext-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M7 17 17 7" /><path d="M8 7h9v9" />
+              </svg>
+            </a>
+          {:else}
+            <span class="btn" aria-disabled="true">
+              Open site
+              <svg class="ext-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M7 17 17 7" /><path d="M8 7h9v9" />
+              </svg>
+            </span>
+          {/if}
           <button type="button" onclick={redeploy} disabled={busy}>{busy ? 'Working…' : 'Redeploy'}</button>
         </div>
       </section>
@@ -490,12 +508,12 @@
         <div><span>Last deploy</span><b>{fmt(project.updated_at)}</b></div>
         <div>
           <span>Custom domain</span>
-          {#if project.custom_domain}
+          {#if domainUrl}
             <a
               class="overview-link"
-              href={`https://${project.custom_domain}`}
+              href={domainUrl}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
               aria-label={`Open ${project.custom_domain} in a new tab`}
             >
               {project.custom_domain}
@@ -503,6 +521,8 @@
                 <path d="M7 17 17 7" /><path d="M8 7h9v9" />
               </svg>
             </a>
+          {:else if project.custom_domain}
+            <b>{project.custom_domain}</b>
           {:else}
             <b>not set</b>
           {/if}
@@ -687,6 +707,9 @@
                         {/if}
                       </button>
                     </div>
+                    {#if copyErrorFor === dep.id}
+                      <p class="copy-error" role="alert">Copy failed — select manually</p>
+                    {/if}
                   </div>
                 </details>
               </li>
@@ -1323,6 +1346,12 @@
     display: flex;
     justify-content: flex-end;
     margin-top: 10px;
+  }
+
+  .copy-error {
+    margin: 8px 0 0;
+    color: var(--red);
+    font-size: 14px;
   }
 
   button.copy {

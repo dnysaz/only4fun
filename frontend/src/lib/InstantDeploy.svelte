@@ -5,6 +5,8 @@
   import Nav from './Nav.svelte';
   import Footer from './Footer.svelte';
   import { listZipPaths } from './zipTree.js';
+  import { copyText } from './clipboard.js';
+  import { logout } from './authActions.js';
   import { buildTreeRows, detectFramework, normalizeTreePaths } from './fileTree.js';
   import { isValidGitHubRepoUrl } from './github.js';
 
@@ -17,6 +19,7 @@
   let result = $state(null);
   let copied = $state(false);
   let addressCopied = $state(false);
+  let copyError = $state('');
   let accepted = $state(false);
 
   let preview = $state({ subdomain: '', url: '', token: '', loading: false });
@@ -48,6 +51,7 @@
   async function requestPreview() {
     const token = ++previewToken;
     addressCopied = false;
+    copyError = '';
     addressError = '';
     preview = { subdomain: '', url: '', token: '', loading: true };
     try {
@@ -76,6 +80,7 @@
     if (!ready) {
       previewToken++;
       addressCopied = false;
+      copyError = '';
       addressError = '';
       preview = { subdomain: '', url: '', token: '', loading: false };
       return;
@@ -151,6 +156,7 @@
     event.preventDefault();
     error = '';
     copied = false;
+    copyError = '';
 
     if (!sourceValid || tree.loading || tree.error) return;
     if (!preview.subdomain || !preview.token) {
@@ -182,25 +188,21 @@
 
   async function copyUrl() {
     if (!result?.url) return;
-    try {
-      await navigator.clipboard.writeText(result.url);
-      copied = true;
-    } catch {
-      copied = false;
-    }
+    const ok = await copyText(result.url);
+    copied = ok;
+    copyError = ok ? '' : 'Copy failed — select manually';
   }
 
   async function copyAddress() {
     const value = preview.url || (preview.subdomain ? `https://${preview.subdomain}.only4.fun` : '');
     if (!value) return;
-    try {
-      await navigator.clipboard.writeText(value);
-      addressCopied = true;
+    const ok = await copyText(value);
+    addressCopied = ok;
+    copyError = ok ? '' : 'Copy failed — select manually';
+    if (ok) {
       setTimeout(() => {
         addressCopied = false;
       }, 1800);
-    } catch {
-      addressCopied = false;
     }
   }
 
@@ -211,6 +213,7 @@
     error = '';
     copied = false;
     addressCopied = false;
+    copyError = '';
     addressError = '';
     accepted = false;
     previewToken++;
@@ -222,7 +225,7 @@
 </script>
 
 <div class="instant workspace">
-  <div class="wrap"><Nav /></div>
+  <div class="wrap"><Nav onSignOut={logout} /></div>
 
   {#if !result}
     <section class="wrap hero">
@@ -325,6 +328,9 @@
                   <span>{addressError}</span>
                   <button type="button" class="copy-address" onclick={requestPreview}>Retry</button>
                 </div>
+              {/if}
+              {#if copyError}
+                <p class="copy-error" role="alert">{copyError}</p>
               {/if}
             {/if}
 
@@ -471,6 +477,9 @@
           </button>
           <a class="btn" href={result.url} target="_blank" rel="noopener noreferrer">Open site</a>
         </div>
+        {#if copyError}
+          <p class="copy-error" role="alert">{copyError}</p>
+        {/if}
       </div>
 
       <p class="notice">
@@ -811,6 +820,12 @@
     margin: 22px 0 0;
     color: var(--red);
     font-size: 17px;
+  }
+
+  .copy-error {
+    margin: 12px 0 0;
+    color: var(--red);
+    font-size: 15px;
   }
 
   .submit {
