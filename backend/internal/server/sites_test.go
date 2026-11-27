@@ -15,6 +15,33 @@ import (
 	"only4.fun/backend/internal/secure"
 )
 
+func TestServerEntryForProject(t *testing.T) {
+	root := t.TempDir()
+	if err := os.WriteFile(filepath.Join(root, "server.js"), []byte("console.log(1)"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Tanpa script "start", server.js tidak boleh dijalankan sebagai SSR.
+	if got := findServerEntry(root); got != "" {
+		t.Fatalf("findServerEntry without start script = %q, want empty", got)
+	}
+
+	// Project ZIP tidak pernah boleh masuk mode SSR walaupun ada server.js.
+	if got := serverEntryForProject(root, "zip://site.zip"); got != "" {
+		t.Fatalf("serverEntryForProject(zip) = %q, want empty", got)
+	}
+
+	if err := os.WriteFile(filepath.Join(root, "package.json"), []byte(`{"scripts":{"start":"node server.js"}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := findServerEntry(root); !strings.HasSuffix(got, "server.js") {
+		t.Fatalf("findServerEntry with start script = %q, want server.js", got)
+	}
+	if got := serverEntryForProject(root, "https://github.com/demo/repo"); !strings.HasSuffix(got, "server.js") {
+		t.Fatalf("serverEntryForProject(repo) = %q, want server.js", got)
+	}
+}
+
 func TestSiteHandlerServesCustomDomain(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	if err := secure.Init("only4.fun-test-secret"); err != nil {

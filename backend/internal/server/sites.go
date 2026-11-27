@@ -138,8 +138,9 @@ func SiteHandler(cfg *config.Config, projectStore *database.ProjectStore, pm *Pr
 
 		root := filepath.Join(sitesDir, project.Subdomain)
 
-		// Cek apakah ada server entry point (SSR mode)
-		serverEntry := findServerEntry(root)
+		// Project dari ZIP selalu statis. Jangan pernah menjalankan server.js
+		// dari arsip pengguna, walaupun file tersebut muncul setelah build.
+		serverEntry := serverEntryForProject(root, project.RepoURL)
 		if serverEntry != "" {
 			// SSR mode: proxy ke Node.js process
 			port, err := pm.Start(project.Subdomain, serverEntry)
@@ -156,14 +157,24 @@ func SiteHandler(cfg *config.Config, projectStore *database.ProjectStore, pm *Pr
 	}
 }
 
+// serverEntryForProject menentukan apakah project boleh berjalan dalam mode SSR.
+// Untuk project ZIP selalu mengembalikan "" agar tidak pernah ada proses node server.js dari arsip user.
+func serverEntryForProject(root, repoURL string) string {
+	if strings.HasPrefix(repoURL, "zip://") {
+		return ""
+	}
+	return findServerEntry(root)
+}
+
 // findServerEntry mencari entry point server yang dinyatakan secara eksplisit.
 // Repo statis yang kebetulan punya index.js/start.js tidak boleh dijalankan
 // sebagai server, jadi SSR hanya aktif bila package.json punya script "start"
 // atau tersedia output standalone Next.js.
 func findServerEntry(root string) string {
-	candidates := []string{".next/standalone/server.js", "server.js"}
+	candidates := []string{".next/standalone/server.js"}
 	if packageHasStartScript(root) {
 		candidates = append(candidates,
+			"server.js",
 			"server.mjs",
 			"build/server.js",
 			"dist/server.js",

@@ -76,6 +76,33 @@ func TestExtractZipRejectsTraversal(t *testing.T) {
 	}
 }
 
+func TestHasZipServerEntry(t *testing.T) {
+	for _, rel := range []string{"server.js", "server.mjs", "dist/server.js", ".next/standalone/server.js"} {
+		root := t.TempDir()
+		full := filepath.Join(root, rel)
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte("console.log(1)"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if !hasZipServerEntry(root) {
+			t.Errorf("hasZipServerEntry(%q) = false, want true", rel)
+		}
+	}
+
+	static := t.TempDir()
+	if err := os.WriteFile(filepath.Join(static, "index.html"), []byte("ok"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(static, "app.js"), []byte("ok"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if hasZipServerEntry(static) {
+		t.Error("static ZIP should not be rejected")
+	}
+}
+
 func TestStripSingleRoot(t *testing.T) {
 	root := t.TempDir()
 	nested := filepath.Join(root, "site")

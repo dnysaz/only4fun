@@ -28,7 +28,31 @@ const (
 )
 
 // zipRepoPrefix menandai project yang dibuat dari unggahan ZIP (bukan repo).
+// Server package memakai literal yang sama untuk mematikan SSR bagi project ZIP.
 const zipRepoPrefix = "zip://"
+
+// zipServerEntries adalah entry point yang akan dijalankan SiteHandler sebagai
+// Node.js server. Upload ZIP hanya boleh menghasilkan situs statis, jadi semua
+// kandidat ini ditolak sebelum project dibuat.
+var zipServerEntries = []string{
+	".next/standalone/server.js",
+	"server.js",
+	"server.mjs",
+	"server.cjs",
+	"build/server.js",
+	"build/server.mjs",
+	"dist/server.js",
+	"dist/server.mjs",
+}
+
+func hasZipServerEntry(root string) bool {
+	for _, rel := range zipServerEntries {
+		if info, err := os.Stat(filepath.Join(root, rel)); err == nil && !info.IsDir() {
+			return true
+		}
+	}
+	return false
+}
 
 // CreateFromZip membuat project baru dari arsip ZIP berisi file statis,
 // publishes it, then returns the project.
@@ -97,6 +121,10 @@ func (h *ProjectHandler) CreateFromZip(c *gin.Context) {
 	root := stripSingleRoot(extractDir)
 	if _, err := os.Stat(filepath.Join(root, "index.html")); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "the ZIP must contain index.html at its root (or inside a single folder)"})
+		return
+	}
+	if hasZipServerEntry(root) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ZIP uploads are static-only; remove server.js or other server entry files"})
 		return
 	}
 
