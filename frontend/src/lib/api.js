@@ -64,7 +64,10 @@ async function request(path, { method = 'GET', body, signal, timeoutMs = DEFAULT
 
 export const api = {
   me: () => request('/api/auth/me'),
-  logout: () => request('/api/auth/logout', { method: 'POST' }),
+  // all=true menghapus semua session user. Query dipakai supaya middleware
+  // audit bisa mencatat "logout everywhere" tanpa membaca body request.
+  logout: ({ all = false } = {}) =>
+    request(`/api/auth/logout${all ? '?all=true' : ''}`, { method: 'POST' }),
 
   listProjects: () => request('/api/projects'),
   getProject: (id) => request(`/api/projects/${encodeURIComponent(id)}`),

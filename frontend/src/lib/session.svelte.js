@@ -103,9 +103,9 @@ export async function revalidateSession() {
   }
 }
 
-export async function signOut() {
+export async function signOut({ all = false } = {}) {
   try {
-    await api.logout();
+    await api.logout({ all });
   } catch {
     // Sesi mungkin sudah kedaluwarsa; tetap bersihkan state lokal.
   }

@@ -5,6 +5,7 @@
   import { session } from './session.svelte.js';
   import { getRoute, navigate } from './router.svelte.js';
   import { trapTab } from './focusTrap.js';
+  import { Loading } from './loading.ts';
 
   let { onSignOut } = $props();
 
@@ -14,6 +15,7 @@
   let scrolled = $state(false);
   let isMobile = $state(window.matchMedia('(max-width: 700px)').matches);
   let drawerOpen = $state(false);
+  let signingOutAll = $state(false);
   let drawer;
   let drawerTrigger = null;
 
@@ -111,6 +113,17 @@
   function signOutFromDrawer() {
     closeDrawer();
     onSignOut?.();
+  }
+
+  async function signOutEverywhereFromDrawer() {
+    if (signingOutAll) return;
+    signingOutAll = true;
+    try {
+      await onSignOut?.({ all: true });
+    } finally {
+      signingOutAll = false;
+      closeDrawer();
+    }
   }
 
   function goInstant(event) {
@@ -226,6 +239,25 @@
         <path d="M21 12H9" />
       </svg>
       <span>Sign out</span>
+    </button>
+    <button
+      class="drawer-item danger"
+      type="button"
+      onclick={signOutEverywhereFromDrawer}
+      disabled={signingOutAll}
+    >
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="3" y="4" width="13" height="10" rx="2" />
+        <path d="M8 20h8a2 2 0 0 0 2-2v-5" />
+        <path d="M6 18h2" />
+      </svg>
+      <span>
+        {#if signingOutAll}
+          <Loading label="Signing out everywhere…" size={12} inline />
+        {:else}
+          Sign out everywhere
+        {/if}
+      </span>
     </button>
   {/if}
 </div>
@@ -497,6 +529,11 @@
   button.drawer-item:hover:not(:disabled) {
     background: var(--red) !important;
     color: #fff !important;
+  }
+
+  button.drawer-item:disabled {
+    cursor: wait;
+    opacity: 0.7;
   }
 
   .drawer-item svg {
