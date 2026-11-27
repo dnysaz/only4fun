@@ -6,6 +6,7 @@
   import Footer from './Footer.svelte';
   import { listZipPaths } from './zipTree.js';
   import { buildTreeRows, detectFramework, normalizeTreePaths } from './fileTree.js';
+  import { isValidGitHubRepoUrl } from './github.js';
 
   let tab = $state('repo');
   let repoUrl = $state('');
@@ -19,6 +20,7 @@
   let accepted = $state(false);
 
   let preview = $state({ subdomain: '', url: '', token: '', loading: false });
+  let addressError = $state('');
   let previewToken = 0;
   let tree = $state({ paths: [], signals: [], loading: false, error: '', truncated: false });
   let treeToken = 0;
@@ -27,7 +29,7 @@
 
   // Tombol launch ditahan sampai alamat preview selesai dibuat, supaya alamat
   // yang terlihat di form sama persis dengan alamat situs yang di-publish.
-  let sourceValid = $derived(tab === 'zip' ? !!file : /github\.com/i.test(repoUrl.trim()));
+  let sourceValid = $derived(tab === 'zip' ? !!file : isValidGitHubRepoUrl(repoUrl));
   let treeRows = $derived(buildTreeRows(tree.paths));
   let fileCount = $derived(normalizeTreePaths(tree.paths).length);
   let frameworkDetected = $derived(detectFramework(tree.paths, tree.signals));
@@ -38,12 +40,15 @@
       !!tree.error ||
       !accepted ||
       frameworkDetected ||
+      !preview.subdomain ||
+      !preview.token ||
       (sourceValid && preview.loading),
   );
 
   async function requestPreview() {
     const token = ++previewToken;
     addressCopied = false;
+    addressError = '';
     preview = { subdomain: '', url: '', token: '', loading: true };
     try {
       const data = await api.instantAddress();
@@ -54,19 +59,24 @@
         token: data?.token ?? '',
         loading: false,
       };
+      if (!preview.subdomain || !preview.token) {
+        addressError = 'Could not generate an address. Please retry.';
+      }
     } catch {
       if (token !== previewToken) return;
       preview = { subdomain: '', url: '', token: '', loading: false };
+      addressError = 'Could not generate an address. Please retry.';
     }
   }
 
   $effect(() => {
     if (result) return;
     const value = tab === 'repo' ? repoUrl.trim() : (file?.name ?? '');
-    const ready = value && (tab === 'zip' || /github\.com/i.test(value));
+    const ready = value && (tab === 'zip' || isValidGitHubRepoUrl(value));
     if (!ready) {
       previewToken++;
       addressCopied = false;
+      addressError = '';
       preview = { subdomain: '', url: '', token: '', loading: false };
       return;
     }
@@ -77,7 +87,7 @@
   $effect(() => {
     if (result) return;
     const source = tab === 'repo' ? repoUrl.trim() : file;
-    if (!source || (tab === 'repo' && !/github\.com/i.test(source))) {
+    if (!source || (tab === 'repo' && !isValidGitHubRepoUrl(source))) {
       treeToken++;
       tree = emptyTree;
       return;
@@ -143,6 +153,10 @@
     copied = false;
 
     if (!sourceValid || tree.loading || tree.error) return;
+    if (!preview.subdomain || !preview.token) {
+      error = addressError || 'Could not generate an address. Please retry.';
+      return;
+    }
     if (!accepted) {
       error = 'Accept the terms and conditions to launch.';
       return;
@@ -197,6 +211,7 @@
     error = '';
     copied = false;
     addressCopied = false;
+    addressError = '';
     accepted = false;
     previewToken++;
     treeToken++;
@@ -305,6 +320,12 @@
                 </span>
                 <span class="address-note">generated automatically</span>
               </div>
+              {#if addressError}
+                <div class="address-error" role="alert">
+                  <span>{addressError}</span>
+                  <button type="button" class="copy-address" onclick={requestPreview}>Retry</button>
+                </div>
+              {/if}
             {/if}
 
             <div class="terms" class:accepted>
@@ -689,6 +710,16 @@
 
   .address-note {
     margin-left: auto;
+  }
+
+  .address-error {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 12px;
+    color: #c5221f;
+    font-size: 14px;
   }
 
   .terms {
