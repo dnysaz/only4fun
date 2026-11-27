@@ -7,8 +7,12 @@
     title = 'Are you sure?',
     message = '',
     confirmLabel = 'Delete',
+    cancelLabel = 'Cancel',
     busyLabel = 'Deleting…',
     busy = false,
+    tone = 'danger',
+    icon = '!',
+    showConfirm = true,
     onConfirm = () => {},
     onCancel = () => {},
   } = $props();
@@ -51,13 +55,13 @@
     <button
       type="button"
       class="scrim"
-      aria-label="Close confirmation"
+      aria-label="Close dialog"
       disabled={busy}
       onclick={onCancel}
     ></button>
 
     <div
-      class="dialog"
+      class="dialog {tone}"
       bind:this={dialog}
       tabindex="-1"
       role="dialog"
@@ -65,21 +69,23 @@
       aria-labelledby="confirm-title"
       aria-describedby="confirm-message"
     >
-      <span class="icon" aria-hidden="true">!</span>
+      <span class="icon" aria-hidden="true">{icon}</span>
       <h2 id="confirm-title">{title}</h2>
       <p id="confirm-message">{message}</p>
 
       <div class="actions">
-        <button type="button" class="cancel" disabled={busy} onclick={onCancel}>Cancel</button>
-        <button
-          type="button"
-          class="confirm"
-          bind:this={confirmButton}
-          disabled={busy}
-          onclick={onConfirm}
-        >
-          {busy ? busyLabel : confirmLabel}
-        </button>
+        <button type="button" class="cancel" disabled={busy} onclick={onCancel}>{cancelLabel}</button>
+        {#if showConfirm}
+          <button
+            type="button"
+            class="confirm"
+            bind:this={confirmButton}
+            disabled={busy}
+            onclick={onConfirm}
+          >
+            {busy ? busyLabel : confirmLabel}
+          </button>
+        {/if}
       </div>
     </div>
   </div>
@@ -107,12 +113,17 @@
   }
 
   .dialog {
+    --accent: var(--red);
     position: relative;
     width: min(100%, 460px);
     padding: 34px;
     border: 2px solid var(--line);
     border-radius: 28px;
     background: var(--bg);
+  }
+
+  .dialog.success {
+    --accent: var(--green);
   }
 
   .dialog:focus {
@@ -126,7 +137,7 @@
     height: 48px;
     margin-bottom: 22px;
     border-radius: 50%;
-    background: var(--red);
+    background: var(--accent);
     color: #fff;
     font-size: 28px;
     font-weight: 800;
@@ -146,6 +157,8 @@
     color: var(--muted);
     font-size: 16px;
     line-height: 1.5;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
 
   .actions {
@@ -177,13 +190,13 @@
   }
 
   .confirm {
-    border-color: var(--red);
-    background: var(--red);
+    border-color: var(--accent);
+    background: var(--accent);
     color: #fff;
   }
 
   .confirm:hover:not(:disabled) {
-    background: var(--red) !important;
+    background: var(--accent) !important;
     border-color: var(--ink) !important;
     color: #fff !important;
   }

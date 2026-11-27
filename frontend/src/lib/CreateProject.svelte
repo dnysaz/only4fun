@@ -1,12 +1,15 @@
 <script>
+  import { onDestroy, tick, untrack } from 'svelte';
   import { api } from './api.js';
   import { Loading } from './loading.ts';
+  import ConfirmDialog from './ConfirmDialog.svelte';
   import { sanitize, validateName } from './subdomain.js';
   import { isValidGitHubRepoUrl } from './github.js';
   import { buildTreeRows, normalizeTreePaths } from './fileTree.js';
   import { listZipPaths } from './zipTree.js';
   import { session, signOut } from './session.svelte.js';
   import { navigate } from './router.svelte.js';
+  import { visibility } from './visibility.svelte.js';
 
   let { preset = '', onCreated } = $props();
 
@@ -22,6 +25,20 @@
   let error = $state('');
   let done = $state('');
   let projectId = $state('');
+
+  // Setelah Start deploy, panel kanan menampilkan log build secara realtime.
+  let buildPhase = $state('idle'); // idle | building | success | failed
+  let buildStatus = $state('');
+  let buildSubdomain = $state('');
+  let buildUrl = $state('');
+  let buildLog = $state('');
+  let result = $state(null); // { type, title, message }
+  let createdProject = $state(null);
+  let logDeploymentId = $state('');
+  let logBox = $state(null);
+  let pollTimer = null;
+  let pollFailures = 0;
+  let buildToken = 0;
 
   let check = $state({ name: '', available: null, error: '', checking: false });
   let tree = $state({ paths: [], loading: false, error: '', truncated: false });
@@ -82,6 +99,7 @@
   );
   let canSubmit = $derived(
     !submitting &&
+      buildPhase === 'idle' &&
       accepted &&
       nameCheck.ok &&
       nameAvailable &&
@@ -307,6 +325,163 @@
     if (projectId) navigate(`/project/${projectId}`);
   }
 
+  function clearPoll() {
+    if (pollTimer) {
+      window.clearInterval(pollTimer);
+      pollTimer = null;
+    }
+  }
+
+  function resetBuild() {
+    buildToken++;
+    clearPoll();
+    buildPhase = 'idle';
+    buildStatus = '';
+    buildSubdomain = '';
+    buildUrl = '';
+    buildLog = '';
+    result = null;
+    createdProject = null;
+    logDeploymentId = '';
+    pollFailures = 0;
+  }
+
+  function clearSubmittedSource() {
+    repoUrl = '';
+    file = null;
+    envRows = [];
+    envOpen = false;
+    name = '';
+    autoName = '';
+    accepted = false;
+    if (fileInput) fileInput.value = '';
+  }
+
+  function describeBuildError(log, fallback) {
+    const lines = (log || '')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (!lines.length) return fallback;
+    const errors = lines.filter((line) => /error|failed|fatal|unable|cannot/i.test(line));
+    return (errors.length ? errors : lines).slice(-4).join('\n');
+  }
+
+  function failBuild(message, detail) {
+    if (buildPhase === 'idle') return;
+    buildPhase = 'failed';
+    buildStatus = 'Failed';
+    if (!buildLog) buildLog = detail || message;
+    error = message;
+    result = {
+      type: 'failed',
+      title: 'Deploy failed',
+      message: [
+        `We could not publish ${buildSubdomain ? `${buildSubdomain}.only4.fun` : 'your site'}.`,
+        '',
+        detail || message,
+      ].join('\n'),
+    };
+    clearPoll();
+  }
+
+  function finishBuild(deployment) {
+    buildLog = deployment.log || buildLog;
+    if (deployment.status === 'success') {
+      buildPhase = 'success';
+      buildStatus = 'Success';
+      done = `${buildSubdomain}.only4.fun is live.`;
+      result = {
+        type: 'success',
+        title: 'Deploy successful',
+        message: `${buildSubdomain}.only4.fun is live and ready to share.`,
+      };
+      onCreated?.(createdProject ?? { id: projectId, subdomain: buildSubdomain });
+    } else {
+      failBuild(
+        'The build failed.',
+        describeBuildError(deployment.log || buildLog, 'The build exited with an error.'),
+      );
+    }
+    clearPoll();
+  }
+
+  async function pollBuild() {
+    if (buildPhase !== 'building' || !projectId) return;
+    const token = buildToken;
+    try {
+      const data = await api.deployments(projectId);
+      if (token !== buildToken || buildPhase !== 'building') return;
+      const list = Array.isArray(data?.deployments) ? data.deployments : [];
+      const deployment = logDeploymentId
+        ? (list.find((dep) => dep.id === logDeploymentId) ?? null)
+        : (list[0] ?? null);
+
+      // Worker membuat record deployment beberapa saat setelah project dibuat.
+      if (!deployment) return;
+      if (!logDeploymentId && deployment.id) logDeploymentId = deployment.id;
+
+      buildLog = deployment.log || buildLog;
+      buildStatus =
+        deployment.status === 'success'
+          ? 'Success'
+          : deployment.status === 'failed'
+            ? 'Failed'
+            : deployment.status === 'building'
+              ? 'Building'
+              : 'Queued';
+      pollFailures = 0;
+
+      if (deployment.status === 'success' || deployment.status === 'failed') {
+        finishBuild(deployment);
+      }
+    } catch (err) {
+      if (token !== buildToken || buildPhase !== 'building') return;
+      pollFailures++;
+      if (pollFailures >= 5) {
+        failBuild(
+          'Could not follow the build.',
+          err?.message ?? 'The build status is unavailable.',
+        );
+      }
+    }
+  }
+
+  function closeResult() {
+    const wasSuccess = result?.type === 'success';
+    resetBuild();
+    if (wasSuccess) clearSubmittedSource();
+  }
+
+  function openSite() {
+    if (!buildUrl) {
+      closeResult();
+      return;
+    }
+    window.open(buildUrl, '_blank', 'noopener,noreferrer');
+    closeResult();
+  }
+
+  $effect(() => {
+    const shouldPoll = buildPhase === 'building' && !!projectId && visibility.visible;
+    if (shouldPoll && !pollTimer) {
+      pollTimer = window.setInterval(pollBuild, 900);
+      untrack(pollBuild);
+    } else if (!shouldPoll && pollTimer) {
+      clearPoll();
+    }
+  });
+
+  $effect(() => {
+    buildLog;
+    if (!logBox) return;
+    tick().then(() => {
+      if (logBox) logBox.scrollTop = logBox.scrollHeight;
+    });
+  });
+
+  onDestroy(clearPoll);
+
   async function submit(event) {
     event.preventDefault();
     error = '';
@@ -353,6 +528,21 @@
         ? Object.fromEntries(envRows.filter((row) => row.key.trim()).map((row) => [row.key.trim(), row.value]))
         : undefined;
 
+    // Tampilkan panel log seketika tombol ditekan, sebelum request selesai.
+    buildToken++;
+    const token = buildToken;
+    buildPhase = 'building';
+    buildStatus = 'Queued';
+    buildSubdomain = name;
+    buildUrl = '';
+    buildLog = '';
+    result = null;
+    createdProject = null;
+    logDeploymentId = '';
+    pollFailures = 0;
+    done = '';
+    projectId = '';
+
     submitting = true;
     try {
       const data =
@@ -360,19 +550,23 @@
           ? await api.uploadZip(name, file)
           : await api.createProject({ repoUrl: repoUrl.trim(), subdomain: name, envVars });
 
-      done = `${data?.project?.subdomain ?? name}.only4.fun is queued. Build starts in a moment.`;
+      if (token !== buildToken) return;
+      createdProject = data?.project ?? null;
       projectId = data?.project?.id ?? '';
-      repoUrl = '';
-      file = null;
-      envRows = [];
-      envOpen = false;
-      accepted = false;
-      if (fileInput) fileInput.value = '';
-      onCreated?.(data?.project);
+      buildSubdomain = data?.project?.subdomain ?? name;
+      buildUrl = `https://${buildSubdomain}.only4.fun`;
+      if (!projectId) {
+        failBuild('Could not start the deploy.', 'The server did not return a project ID.');
+        return;
+      }
     } catch (err) {
-      error = err?.message ?? 'Could not create the project';
+      if (token !== buildToken) return;
+      failBuild(
+        'Could not start the deploy.',
+        err?.message ?? 'Could not create the project',
+      );
     } finally {
-      submitting = false;
+      if (token === buildToken) submitting = false;
     }
   }
 </script>
@@ -649,12 +843,12 @@
         {/if}
 
         <button class="submit" type="submit" disabled={!canSubmit}>
-          {#if submitting}
-            <Loading label="Starting…" size={14} inline />
+          {#if submitting || buildPhase === 'building'}
+            <Loading label={buildPhase === 'building' ? 'Deploying…' : 'Starting…'} size={14} inline />
           {:else}
             Start deploy
           {/if}
-          {#if !submitting}
+          {#if !submitting && buildPhase === 'idle'}
             <svg
               viewBox="0 0 24 24"
               width="18"
@@ -673,11 +867,13 @@
         </button>
       </div>
 
-      <aside class="tree-panel" aria-label="File preview">
+      <aside class="tree-panel" aria-label={buildPhase === 'idle' ? 'File preview' : 'Deploy log'}>
         <div class="tree-head">
-          <span>File tree</span>
+          <span>{buildPhase === 'idle' ? 'File tree' : 'Deploy log'}</span>
           <span class="tree-count">
-            {#if tree.loading}
+            {#if buildPhase !== 'idle'}
+              {buildStatus || 'Queued'}
+            {:else if tree.loading}
               <Loading label="Reading…" size={12} inline />
             {:else if tree.error}
               Unavailable
@@ -687,7 +883,20 @@
           </span>
         </div>
 
-        {#if !sourceValid}
+        {#if buildPhase !== 'idle'}
+          <div
+            class="log-box"
+            bind:this={logBox}
+            role="log"
+            aria-live="polite"
+            aria-label="Deploy log"
+          >
+            <pre>{#if buildLog}{buildLog}{:else}<Loading label="Waiting for the first build step…" size={12} inline />{/if}</pre>
+          </div>
+          {#if buildPhase === 'failed'}
+            <p class="tree-note">The build log above explains what went wrong.</p>
+          {/if}
+        {:else if !sourceValid}
           <div class="tree-empty">Paste a GitHub link or choose a ZIP to see its files here.</div>
         {:else if tree.loading}
           <div class="tree-empty"><Loading label="Reading files…" size={22} /></div>
@@ -737,6 +946,27 @@
     </div>
   </div>
 </form>
+
+<ConfirmDialog
+  open={result?.type === 'success'}
+  tone="success"
+  icon="✓"
+  title={result?.title ?? 'Deploy successful'}
+  message={result?.message ?? ''}
+  cancelLabel="Close"
+  confirmLabel="Open site"
+  onConfirm={openSite}
+  onCancel={closeResult}
+/>
+
+<ConfirmDialog
+  open={result?.type === 'failed'}
+  title={result?.title ?? 'Deploy failed'}
+  message={result?.message ?? ''}
+  cancelLabel="Close"
+  showConfirm={false}
+  onCancel={closeResult}
+/>
 
 <style>
   .create {
@@ -1334,6 +1564,25 @@
   .tree-count {
     font: 500 17px/1 'Gabarito', sans-serif;
     color: var(--muted);
+  }
+
+  .log-box {
+    flex: 1;
+    min-height: 0;
+    margin-top: 16px;
+    padding: 16px;
+    overflow: auto;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background: #202124;
+    color: #e8eaed;
+  }
+
+  .log-box pre {
+    margin: 0;
+    font: 500 14px/1.65 'DM Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
   }
 
   .tree-empty {
