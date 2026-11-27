@@ -28,6 +28,14 @@ type ProcessManager struct {
 	usedPorts map[int]bool
 	nextPort  int
 	maxProcs  int
+	// keyLocks serializes start/stop per subdomain. The global mu is only held
+	// for short map/port updates, never during the 10s readiness wait.
+	keyLocks sync.Map
+}
+
+func (pm *ProcessManager) keyLock(subdomain string) *sync.Mutex {
+	value, _ := pm.keyLocks.LoadOrStore(subdomain, &sync.Mutex{})
+	return value.(*sync.Mutex)
 }
 
 // Process merepresentasikan satu proses Node.js untuk satu project.
@@ -110,9 +118,13 @@ func killProcess(p *Process) {
 // baru dinyalakan di port lain dan baru setelah siap port aktif ditukar, lalu
 // proses lama dimatikan. Dengan begitu tidak ada jeda 502 selama redeploy.
 func (pm *ProcessManager) Start(subdomain, serverEntry string) (int, error) {
-	pm.mu.Lock()
-	defer pm.mu.Unlock()
+	// Startup bisa memakan waktu 10 detik. Kunci global hanya dipakai untuk
+	// membaca/menulis state bersama, bukan saat menunggu proses siap.
+	lock := pm.keyLock(subdomain)
+	lock.Lock()
+	defer lock.Unlock()
 
+	pm.mu.Lock()
 	old := pm.processes[subdomain]
 	if old != nil && !isProcessAlive(old) {
 		pm.forget(subdomain)
@@ -129,27 +141,33 @@ func (pm *ProcessManager) Start(subdomain, serverEntry string) (int, error) {
 		}
 		if !stale {
 			old.LastAccess = time.Now()
+			pm.mu.Unlock()
 			return old.Port, nil
 		}
 	}
 
 	// Proses lama untuk subdomain yang sama akan digantikan, jadi tidak dihitung.
 	if old == nil && len(pm.processes) >= pm.maxProcs {
+		pm.mu.Unlock()
 		return 0, fmt.Errorf("too many running servers, please try again later")
 	}
+	pm.mu.Unlock()
 
 	p, err := pm.startProcess(subdomain, serverEntry)
 	if err != nil {
 		// Jangan matikan versi lama bila versi baru gagal siap; lebih baik
 		// tetap menyajikan kode lama daripada 503.
 		if old != nil {
-			log.Printf("SSR restart for %s failed (%v), keeping port %d", subdomain, err, old.Port)
+			pm.mu.Lock()
 			old.LastAccess = time.Now()
+			pm.mu.Unlock()
+			log.Printf("SSR restart for %s failed (%v), keeping port %d", subdomain, err, old.Port)
 			return old.Port, nil
 		}
 		return 0, err
 	}
 
+	pm.mu.Lock()
 	if old != nil {
 		// Port lama dibebaskan sebelum entri ditimpa agar tidak bocor.
 		pm.forget(subdomain)
@@ -157,15 +175,19 @@ func (pm *ProcessManager) Start(subdomain, serverEntry string) (int, error) {
 		log.Printf("SSR server swapped for %s: port %d -> %d", subdomain, old.Port, p.Port)
 	}
 	pm.processes[subdomain] = p
+	pm.mu.Unlock()
 	log.Printf("SSR server started for %s on port %d", subdomain, p.Port)
 	return p.Port, nil
 }
 
 // startProcess menyalakan satu proses Node.js dan menunggu port-nya siap.
-// Pemanggil harus memegang pm.mu.
+// Kunci global hanya dipakai saat mencatat/membebaskan port, bukan saat
+// menunggu readiness, supaya subdomain lain tetap bisa dilayani.
 func (pm *ProcessManager) startProcess(subdomain, serverEntry string) (*Process, error) {
 	// Alokasi port yang benar-benar bebas.
+	pm.mu.Lock()
 	port, err := pm.allocatePort()
+	pm.mu.Unlock()
 	if err != nil {
 		return nil, err
 	}
@@ -191,7 +213,9 @@ func (pm *ProcessManager) startProcess(subdomain, serverEntry string) (*Process,
 		if logFile != nil {
 			_ = logFile.Close()
 		}
+		pm.mu.Lock()
 		pm.releasePort(port)
+		pm.mu.Unlock()
 		return nil, fmt.Errorf("failed to start the server: %w", err)
 	}
 
@@ -214,7 +238,9 @@ func (pm *ProcessManager) startProcess(subdomain, serverEntry string) (*Process,
 	for i := 0; i < 50; i++ {
 		time.Sleep(200 * time.Millisecond)
 		if !isProcessAlive(proc) {
+			pm.mu.Lock()
 			pm.releasePort(port)
+			pm.mu.Unlock()
 			return nil, fmt.Errorf("the server exited during startup; check /tmp/ssr-%s.log", subdomain)
 		}
 		if isPortOpen(port) {
@@ -224,7 +250,9 @@ func (pm *ProcessManager) startProcess(subdomain, serverEntry string) (*Process,
 	}
 	if !ready {
 		killProcess(proc)
+		pm.mu.Lock()
 		pm.releasePort(port)
+		pm.mu.Unlock()
 		return nil, fmt.Errorf("the server did not become ready within 10 seconds")
 	}
 
@@ -240,6 +268,11 @@ func (pm *ProcessManager) startProcess(subdomain, serverEntry string) (*Process,
 
 // Stop menghentikan proses Node.js untuk subdomain tertentu.
 func (pm *ProcessManager) Stop(subdomain string) {
+	// Serialisasi dengan Start untuk subdomain yang sama.
+	lock := pm.keyLock(subdomain)
+	lock.Lock()
+	defer lock.Unlock()
+
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
