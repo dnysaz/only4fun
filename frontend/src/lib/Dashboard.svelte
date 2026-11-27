@@ -45,7 +45,7 @@
       {:else}
         <div class="list">
           {#each workspace.projects as project (project.id)}
-            <ProjectCard {project} onChanged={() => reload({ quiet: true })} />
+            <ProjectCard {project} />
           {/each}
         </div>
       {/if}

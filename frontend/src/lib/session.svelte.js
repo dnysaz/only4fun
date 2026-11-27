@@ -28,6 +28,26 @@ export async function loadSession({ force = false } = {}) {
   }
 }
 
+// Cek ulang sesi tanpa mengguncang UI (dipakai saat tab dibuka kembali).
+// Backend mengembalikan 401 bila cookie habis ATAU token GitHub sudah dicabut.
+export async function revalidateSession() {
+  try {
+    const data = await api.me();
+    session.user = data?.user ?? null;
+    session.error = '';
+    return !!session.user;
+  } catch (err) {
+    if (err?.status === 401 || err?.status === 404) {
+      session.user = null;
+      session.error = '';
+      started = false;
+      return false;
+    }
+    // Gangguan jaringan bukan alasan untuk mengeluarkan user.
+    return !!session.user;
+  }
+}
+
 export async function signOut() {
   try {
     await api.logout();

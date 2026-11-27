@@ -14,11 +14,19 @@
   import InfoPage from './lib/InfoPage.svelte';
   import { getRoute } from './lib/router.svelte.js';
   import { getInfoPage } from './lib/infoPages.js';
-  import { loadSession } from './lib/session.svelte.js';
+  import { loadSession, revalidateSession } from './lib/session.svelte.js';
   import { updateSeo } from './lib/seo.js';
 
   onMount(() => {
     loadSession();
+
+    // Tab yang dibiarkan semalaman harus memastikan sesinya masih valid
+    // sebelum halaman launchpad/deploy dipakai.
+    function onVisible() {
+      if (document.visibilityState === 'visible') revalidateSession();
+    }
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   });
 
   $effect(() => {

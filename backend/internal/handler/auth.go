@@ -46,10 +46,11 @@ func safeNextPath(next string) string {
 
 // AuthHandler menangani alur autentikasi GitHub OAuth.
 type AuthHandler struct {
-	oauth2Config *oauth2.Config
-	userStore    *database.UserStore
-	sessionStore *database.SessionStore
-	frontendURL  string
+	oauth2Config  *oauth2.Config
+	userStore     *database.UserStore
+	sessionStore  *database.SessionStore
+	frontendURL   string
+	githubAPIBase string
 }
 
 // NewAuthHandler membuat instance AuthHandler.
@@ -65,10 +66,11 @@ func NewAuthHandler(clientID, clientSecret, redirectURL, frontendURL string, use
 		frontendURL = "http://localhost:5173"
 	}
 	return &AuthHandler{
-		oauth2Config: cfg,
-		userStore:    userStore,
-		sessionStore: sessionStore,
-		frontendURL:  strings.TrimRight(frontendURL, "/"),
+		oauth2Config:  cfg,
+		userStore:     userStore,
+		sessionStore:  sessionStore,
+		frontendURL:   strings.TrimRight(frontendURL, "/"),
+		githubAPIBase: defaultGitHubAPIBase,
 	}, nil
 }
 
@@ -230,6 +232,52 @@ func (h *AuthHandler) ProcessGitHubCallback(c *gin.Context, code string) (string
 	return sessionID, nil
 }
 
+// sessionFromRequest mengambil session aktif dari cookie httpOnly atau header Bearer.
+func (h *AuthHandler) sessionFromRequest(c *gin.Context) (*database.Session, bool) {
+	sessionID, err := c.Cookie(sessionCookieName)
+	if err != nil || sessionID == "" {
+		auth := c.GetHeader("Authorization")
+		if strings.HasPrefix(auth, "Bearer ") {
+			sessionID = strings.TrimPrefix(auth, "Bearer ")
+		}
+	}
+	if sessionID == "" {
+		return nil, false
+	}
+	session, err := h.sessionStore.GetBySessionID(sessionID)
+	if err != nil {
+		return nil, false
+	}
+	return session, true
+}
+
+// githubTokenValid memastikan token GitHub masih diterima. Token yang dicabut
+// membuat semua fitur GitHub (daftar repo, clone) gagal dengan 502; lebih baik
+// sesi dinyatakan habis lebih awal dan user diminta login lagi.
+func (h *AuthHandler) githubTokenValid(token string) bool {
+	// Sesi demo/dev sengaja dibuat tanpa token GitHub.
+	if token == "" {
+		return true
+	}
+	base := strings.TrimRight(h.githubAPIBase, "/")
+	if base == "" {
+		base = defaultGitHubAPIBase
+	}
+	req, err := http.NewRequest(http.MethodGet, base+"/user", nil)
+	if err != nil {
+		return true
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept", "application/vnd.github+json")
+	resp, err := (&http.Client{Timeout: 8 * time.Second}).Do(req)
+	if err != nil {
+		// GitHub sedang tidak bisa dijangkau: jangan log out user karena gangguan jaringan.
+		return true
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode != http.StatusUnauthorized && resp.StatusCode != http.StatusForbidden
+}
+
 // GetMe mengembalikan info user yang sedang login.
 func (h *AuthHandler) GetMe(c *gin.Context) {
 	userID, ok := GetUserID(c)
@@ -240,6 +288,15 @@ func (h *AuthHandler) GetMe(c *gin.Context) {
 	user, err := h.userStore.GetByID(userID)
 	if err != nil || user == nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+	if session, ok := h.sessionFromRequest(c); !ok || !h.githubTokenValid(session.Token) {
+		if ok {
+			_ = h.sessionStore.DeleteByID(session.ID)
+		}
+		c.SetSameSite(http.SameSiteLaxMode)
+		c.SetCookie(sessionCookieName, "", -1, "/", "", isHTTPS(c), true)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "session expired"})
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{

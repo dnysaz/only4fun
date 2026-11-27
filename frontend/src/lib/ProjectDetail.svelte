@@ -9,6 +9,8 @@
 
   const KEY = /^[A-Za-z_][A-Za-z0-9_]*$/;
   const CNAME_TARGET = import.meta.env.VITE_CUSTOM_DOMAIN_CNAME || 'customers.only4.fun';
+  const HISTORY_PAGE = 3;
+  const HISTORY_MAX = 6;
   const STATUS = {
     deployed: { label: 'Live', tone: 'green' },
     building: { label: 'Building', tone: 'yellow' },
@@ -63,6 +65,9 @@
   let id = $derived(getRoute().split('/')[2] ?? '');
   let project = $state(null);
   let deployments = $state([]);
+  let visibleHistory = $state(HISTORY_PAGE);
+  let visibleDeployments = $derived(deployments.slice(0, visibleHistory));
+  let moreHistory = $derived(deployments.length > visibleHistory && visibleHistory < HISTORY_MAX);
   let loading = $state(true);
   let error = $state('');
   let notice = $state('');
@@ -189,10 +194,15 @@
     }
   }
 
+  function loadMoreHistory() {
+    visibleHistory = Math.min(visibleHistory + HISTORY_PAGE, HISTORY_MAX);
+  }
+
   async function load() {
     if (!id) return;
     loading = true;
     error = '';
+    visibleHistory = HISTORY_PAGE;
     try {
       const [detail, history] = await Promise.all([api.getProject(id), api.deployments(id)]);
       project = detail?.project ?? null;
@@ -414,12 +424,22 @@
           <p class="eyebrow"><span class="pulse" aria-hidden="true"></span>{meta.label} project</p>
           <h1>{project.subdomain}<span class="hl">.</span></h1>
           <p class="lead">
-            <a href={url} target="_blank" rel="noreferrer">{url} ↗</a>
+            <a href={url} target="_blank" rel="noreferrer">
+              {url}
+              <svg class="ext-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M7 17 17 7" /><path d="M8 7h9v9" />
+              </svg>
+            </a>
           </p>
         </div>
         <div class="head-actions">
           <span class="tag {meta.tone}"><i></i>{meta.label}</span>
-          <a class="btn" href={url} target="_blank" rel="noreferrer">Open site ↗</a>
+          <a class="btn" href={url} target="_blank" rel="noreferrer">
+            Open site
+            <svg class="ext-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M7 17 17 7" /><path d="M8 7h9v9" />
+            </svg>
+          </a>
           <button type="button" onclick={redeploy} disabled={busy}>{busy ? 'Working…' : 'Redeploy'}</button>
         </div>
       </section>
@@ -448,7 +468,10 @@
               rel="noreferrer"
               aria-label={`Open ${project.custom_domain} in a new tab`}
             >
-              {project.custom_domain} ↗
+              {project.custom_domain}
+              <svg class="ext-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M7 17 17 7" /><path d="M8 7h9v9" />
+              </svg>
             </a>
           {:else}
             <b>not set</b>
@@ -568,7 +591,7 @@
           <p class="hint">No deployments recorded yet.</p>
         {:else}
           <ul class="deploys">
-            {#each deployments as dep, i}
+            {#each visibleDeployments as dep, i}
               <li>
                 <div class="dep-main">
                   <span class="dot {DEPLOY_TONE[dep.status] ?? 'blue'}"></span>
@@ -619,6 +642,11 @@
               </li>
             {/each}
           </ul>
+          {#if moreHistory}
+            <button type="button" class="history-more" onclick={loadMoreHistory}>
+              Load more history
+            </button>
+          {/if}
         {/if}
       </section>
 
@@ -756,6 +784,14 @@
 
   .lead a:hover {
     color: var(--ink);
+  }
+
+  .ext-arrow {
+    display: inline-block;
+    width: 15px;
+    height: 15px;
+    margin-left: 4px;
+    vertical-align: -2px;
   }
 
   .head-actions {
@@ -1163,6 +1199,11 @@
     border-bottom: 0;
   }
 
+  button.history-more {
+    margin-top: 16px;
+    font: 600 15px/1 'Gabarito', sans-serif;
+  }
+
   .dep-main,
   .dep-side {
     display: flex;
@@ -1355,6 +1396,34 @@
   }
 
   @media (max-width: 600px) {
+    .head-actions {
+      gap: 8px;
+    }
+
+    .head-actions .tag,
+    .head-actions .btn,
+    .head-actions button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      min-height: 44px;
+      padding: 0 16px;
+      border: 1.5px solid var(--muted);
+      border-radius: 999px;
+      font: 600 15px/1 'Gabarito', sans-serif;
+      text-transform: none;
+      white-space: nowrap;
+    }
+
+    .head-actions .tag {
+      color: var(--muted);
+    }
+
+    .head-actions .btn {
+      color: #fff;
+    }
+
     .env-row input:first-child {
       flex: 1 1 100%;
     }

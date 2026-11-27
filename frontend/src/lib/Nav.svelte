@@ -10,20 +10,44 @@
   let route = $derived(getRoute());
   let hash = $state(window.location.hash.slice(1));
   let scrolled = $state(false);
+  let isMobile = $state(window.matchMedia('(max-width: 700px)').matches);
+  let drawerOpen = $state(false);
 
   $effect(() => {
+    const query = window.matchMedia('(max-width: 700px)');
+    function syncViewport() {
+      isMobile = query.matches;
+      if (!query.matches) drawerOpen = false;
+    }
     function syncHash() {
       hash = window.location.hash.slice(1);
     }
     function syncScroll() {
       scrolled = window.scrollY > 8;
     }
+    syncViewport();
     syncScroll();
+    query.addEventListener('change', syncViewport);
     window.addEventListener('hashchange', syncHash);
     window.addEventListener('scroll', syncScroll, { passive: true });
     return () => {
+      query.removeEventListener('change', syncViewport);
       window.removeEventListener('hashchange', syncHash);
       window.removeEventListener('scroll', syncScroll);
+    };
+  });
+
+  $effect(() => {
+    if (!drawerOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    function onKeydown(event) {
+      if (event.key === 'Escape') drawerOpen = false;
+    }
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKeydown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeydown);
     };
   });
 
@@ -42,6 +66,24 @@
   function goDashboard(event) {
     event.preventDefault();
     navigate('/launchpad');
+  }
+
+  function handleAvatar(event) {
+    if (!isMobile) {
+      goDashboard(event);
+      return;
+    }
+    event.preventDefault();
+    drawerOpen = !drawerOpen;
+  }
+
+  function closeDrawer() {
+    drawerOpen = false;
+  }
+
+  function signOutFromDrawer() {
+    closeDrawer();
+    onSignOut?.();
   }
 
   function goInstant(event) {
@@ -69,10 +111,16 @@
   <ul>
     <li><a href="#how" class:active={isSectionActive('how')} onclick={(event) => goSection(event, 'how')}>How it works</a></li>
     <li><a href="#features" class:active={isSectionActive('features')} onclick={(event) => goSection(event, 'features')}>Features</a></li>
-    <li><a href="/instant" class:active={isActive('/instant')} onclick={goInstant}>Instant Launch <span class="nav-arrow" aria-hidden="true">↗</span></a></li>
+    <li><a href="/instant" class:active={isActive('/instant')} onclick={goInstant}>Instant Launch <span class="nav-arrow" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7" /><path d="M8 7h9v9" /></svg></span></a></li>
     <li class="actions">
       {#if session.user}
-        <a class="avatar" href="/launchpad" onclick={goDashboard} title={`@${session.user.username}`}>
+        <a
+          class="avatar"
+          href="/launchpad"
+          onclick={handleAvatar}
+          aria-label={isMobile ? 'Open account menu' : `Open launchpad as @${session.user.username}`}
+          title={`@${session.user.username}`}
+        >
           {#if session.user.avatar_url}
             <img src={session.user.avatar_url} alt="" width="34" height="34" />
           {:else}
@@ -96,6 +144,50 @@
     </li>
   </ul>
 </nav>
+
+<button
+  class="drawer-backdrop"
+  class:open={drawerOpen}
+  type="button"
+  aria-label="Close account menu"
+  tabindex={drawerOpen ? 0 : -1}
+  onclick={closeDrawer}
+></button>
+
+<div
+  class="account-drawer"
+  class:open={drawerOpen}
+  role="dialog"
+  aria-modal="true"
+  aria-label="Account menu"
+  aria-hidden={!drawerOpen}
+>
+  <div class="drawer-handle" aria-hidden="true"></div>
+  <div class="drawer-user">
+    <span class="avatar">
+      {#if session.user?.avatar_url}
+        <img src={session.user.avatar_url} alt="" width="42" height="42" />
+      {:else}
+        <span>{initials}</span>
+      {/if}
+    </span>
+    <div>
+      <b>@{session.user?.username ?? 'you'}</b>
+      <span>Only4fun account</span>
+    </div>
+  </div>
+
+  {#if onSignOut}
+    <button class="drawer-item" type="button" onclick={signOutFromDrawer}>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+        <path d="m16 17 5-5-5-5" />
+        <path d="M21 12H9" />
+      </svg>
+      <span>Sign out</span>
+    </button>
+  {/if}
+</div>
 
 <style>
   nav {
@@ -170,11 +262,15 @@
   }
 
   .nav-arrow {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
     margin-left: 5px;
-    font-size: 0.95em;
-    line-height: 1;
     transition: transform 160ms ease;
+  }
+
+  .nav-arrow svg {
+    width: 15px;
+    height: 15px;
   }
 
   nav a:hover .nav-arrow {
@@ -239,6 +335,106 @@
     color: var(--ink) !important;
   }
 
+  .drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 59;
+    padding: 0;
+    border: 0;
+    background: rgba(32, 33, 36, 0.45);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 220ms ease, visibility 220ms ease;
+  }
+
+  .drawer-backdrop.open {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .account-drawer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 60;
+    height: 50vh;
+    max-height: 420px;
+    padding: 10px var(--page-x) calc(22px + env(safe-area-inset-bottom, 0px));
+    background: var(--bg);
+    border-top: 1px solid var(--line);
+    border-radius: 24px 24px 0 0;
+    transform: translateY(100%);
+    visibility: hidden;
+    transition: transform 260ms cubic-bezier(0.22, 0.8, 0.24, 1), visibility 260ms ease;
+  }
+
+  .account-drawer.open {
+    transform: translateY(0);
+    visibility: visible;
+  }
+
+  .drawer-handle {
+    width: 42px;
+    height: 4px;
+    margin: 0 auto 18px;
+    border-radius: 999px;
+    background: var(--line);
+  }
+
+  .drawer-user {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+
+  .drawer-user .avatar {
+    width: 42px;
+    height: 42px;
+    font-size: 15px;
+  }
+
+  .drawer-user b {
+    display: block;
+    color: var(--ink);
+    font-size: 17px;
+  }
+
+  .drawer-user div span {
+    display: block;
+    margin-top: 3px;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  button.drawer-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 16px 0;
+    border: 0;
+    border-top: 1px solid var(--line);
+    border-radius: 0;
+    background: transparent;
+    color: var(--ink);
+    font: 600 17px/1 'Gabarito', sans-serif;
+    text-align: left;
+  }
+
+  button.drawer-item svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  @media (min-width: 701px) {
+    .drawer-backdrop,
+    .account-drawer {
+      display: none;
+    }
+  }
+
   @media (max-width: 900px) {
     nav ul li:not(.actions) {
       display: none;
@@ -269,15 +465,6 @@
     }
 
     nav button.signout {
-      padding: 10px;
-      font: 600 15px/1 'Gabarito', sans-serif;
-    }
-
-    .signout-icon {
-      display: block;
-    }
-
-    .signout-label {
       display: none;
     }
   }

@@ -1,9 +1,8 @@
 <script>
-  import { api } from './api.js';
   import Icon from './Icon.svelte';
   import { navigate } from './router.svelte.js';
 
-  let { project, onChanged } = $props();
+  let { project } = $props();
 
   const STATUS = {
     deployed: { label: 'Live', tone: 'green', icon: 'world' },
@@ -31,28 +30,13 @@
       : '—',
   );
 
-  let busy = $state(false);
-  let error = $state('');
-
-  async function redeploy() {
-    busy = true;
-    error = '';
-    try {
-      await api.redeploy(project.id);
-      onChanged?.();
-    } catch (err) {
-      error = err?.message ?? 'Redeploy failed';
-      busy = false;
-    }
-  }
-
   function goDetail(event) {
     event.preventDefault();
     navigate(`/project/${project.id}`);
   }
 </script>
 
-<article class="card" class:busy>
+<article class="card">
   <a
     class="detail-link"
     href={`/project/${project.id}`}
@@ -85,14 +69,7 @@
         <path d="M7 17L17 7" /><path d="M8 7h9v9" />
       </svg>
     </a>
-    <button type="button" onclick={redeploy} disabled={busy} aria-label={`Redeploy ${project.subdomain}`}>
-      {busy ? 'Working…' : 'Redeploy'}
-    </button>
   </div>
-
-  {#if error}
-    <p class="status bad">{error}</p>
-  {/if}
 </article>
 
 <style>
@@ -111,10 +88,6 @@
 
   .card:hover {
     background: var(--soft);
-  }
-
-  .card.busy {
-    opacity: 0.65;
   }
 
   .detail-link {
@@ -284,37 +257,6 @@
     margin: 0;
     padding: 11px 18px;
     font-size: 15px;
-  }
-
-  button {
-    padding: 11px 17px;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    background: transparent;
-    color: var(--ink);
-    font: 600 15px/1 'Gabarito', sans-serif;
-    cursor: pointer;
-    white-space: nowrap;
-  }
-
-  button:hover:not(:disabled) {
-    background: var(--bg);
-    border-color: var(--muted);
-  }
-
-  button:disabled {
-    opacity: 0.6;
-    cursor: progress;
-  }
-
-  .status {
-    grid-column: 1 / -1;
-    margin: 0;
-    font-size: 15px;
-  }
-
-  .status.bad {
-    color: var(--red);
   }
 
   @media (max-width: 1100px) {

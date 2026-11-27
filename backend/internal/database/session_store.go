@@ -87,3 +87,11 @@ func (s *SessionStore) Delete(sessionID string) error {
 	_, err := s.db.Exec(query, secure.HashID(sessionID))
 	return err
 }
+
+// DeleteByID menghapus session memakai primary key yang sudah tersimpan.
+// Dipakai saat token GitHub ternyata sudah dicabut, sehingga user harus login ulang.
+func (s *SessionStore) DeleteByID(id string) error {
+	query := `DELETE FROM sessions WHERE id = ?`
+	_, err := s.db.Exec(query, id)
+	return err
+}

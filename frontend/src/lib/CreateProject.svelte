@@ -3,7 +3,7 @@
   import { sanitize, validateName } from './subdomain.js';
   import { buildTreeRows, normalizeTreePaths } from './fileTree.js';
   import { listZipPaths } from './zipTree.js';
-  import { session } from './session.svelte.js';
+  import { session, signOut } from './session.svelte.js';
 
   let { preset = '', onCreated } = $props();
 
@@ -170,6 +170,20 @@
       repoPage = data?.page ?? nextPage;
       repoHasMore = !!data?.has_more && incoming.length > 0;
     } catch (err) {
+      // Token GitHub yang sudah dicabut bikin endpoint repo balas 502. Jangan
+      // tampilkan error itu di bawah kolom search: langsung minta login ulang.
+      const needsLogin =
+        err?.status === 401 ||
+        (err?.status === 502 && /sign in again/i.test(err?.message ?? ''));
+      if (needsLogin) {
+        repoList = [];
+        repoHasMore = false;
+        loadedFor = '';
+        repoError = '';
+        await signOut();
+        window.location.assign(api.loginUrl('/deploy'));
+        return;
+      }
       repoError = err?.message ?? 'Could not load your repositories';
     } finally {
       repoLoading = false;
@@ -1322,12 +1336,88 @@
 
   @media (max-width: 700px) {
     .panel {
-      padding: 20px;
+      padding: 20px 16px;
+      border-radius: 18px;
     }
 
-    .submit {
+    .bar-top {
+      gap: 12px;
+      padding-bottom: 16px;
+    }
+
+    .note {
+      font-size: 12px;
+    }
+
+    .tabs {
       width: 100%;
-      justify-content: center;
+      gap: 6px;
+    }
+
+    .tabs button {
+      flex: 1;
+      min-width: 0;
+      padding: 11px 8px;
+      font-size: 15px;
+    }
+
+    .editor {
+      margin-top: 22px;
+    }
+
+    .field input,
+    .picker-search input {
+      min-height: 48px;
+      font-size: 16px;
+      padding: 13px 14px;
+    }
+
+    .picker-search input {
+      padding-left: 42px;
+    }
+
+    .hint,
+    .picker-empty,
+    .picker-error,
+    .terms p {
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .repo-picker,
+    .env-block,
+    .name,
+    .terms {
+      margin-top: 20px;
+      padding-top: 20px;
+    }
+
+    .repo-results {
+      max-height: 220px;
+    }
+
+    .repo-results button {
+      padding: 12px;
+      font-size: 15px;
+    }
+
+    .repo-full {
+      font-size: 14px;
+    }
+
+    .private-tag,
+    .env-optional {
+      font-size: 11px;
+    }
+
+    .env-toggle {
+      min-height: 54px;
+      padding: 12px;
+      font-size: 16px;
+    }
+
+    .env-summary {
+      font-size: 14px;
     }
 
     .env-row {
@@ -1336,8 +1426,63 @@
     }
 
     .env-row input {
-      font-size: 14px;
-      padding: 11px 10px;
+      min-height: 44px;
+      font-size: 13px;
+      padding: 11px 9px;
+    }
+
+    .env-remove {
+      min-height: 44px;
+    }
+
+    .terms-actions {
+      align-items: stretch;
+      gap: 12px;
+    }
+
+    .accept {
+      width: 100%;
+      min-height: 48px;
+      justify-content: center;
+      padding: 0 16px;
+      font-size: 15px;
+    }
+
+    .suffix {
+      font-size: 15px;
+    }
+
+    .status {
+      align-items: flex-start;
+      font-size: 15px;
+      line-height: 1.45;
+    }
+
+    .status .dot {
+      margin-top: 5px;
+    }
+
+    .submit {
+      width: 100%;
+      min-height: 52px;
+      justify-content: center;
+      margin-top: 22px;
+      font-size: 17px;
+    }
+
+    .tree-panel {
+      min-height: 0;
+      margin-top: 22px;
+      padding: 20px 0 0;
+    }
+
+    .tree-head,
+    .tree-count,
+    .tree-root,
+    .tree-empty,
+    .tree-error,
+    .tree-note {
+      font-size: 15px;
     }
   }
 </style>
