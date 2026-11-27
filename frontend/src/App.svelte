@@ -21,17 +21,28 @@
   onMount(() => {
     loadSession();
 
-    // Tab yang dibiarkan semalaman harus memastikan sesinya masih valid
-    // sebelum halaman launchpad/deploy dipakai.
+    // Tab yang dibiarkan semalaman atau perpindah halaman harus memastikan
+    // sesinya masih valid sebelum launchpad/deploy dipakai.
     function onVisible() {
       if (document.visibilityState === 'visible') revalidateSession();
     }
+    const idleTimer = window.setInterval(() => {
+      if (!document.hidden) revalidateSession();
+    }, 5 * 60 * 1000);
+
     document.addEventListener('visibilitychange', onVisible);
-    return () => document.removeEventListener('visibilitychange', onVisible);
+    return () => {
+      window.clearInterval(idleTimer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   });
 
+  let lastRoute = '';
   $effect(() => {
-    updateSeo(getRoute());
+    const route = getRoute();
+    updateSeo(route);
+    if (lastRoute && route !== lastRoute) revalidateSession();
+    lastRoute = route;
   });
 </script>
 
