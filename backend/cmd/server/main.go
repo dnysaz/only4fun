@@ -18,8 +18,9 @@ func main() {
 		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	// Kunci enkripsi untuk token GitHub dan hashing session.
-	if err := secure.LoadFromEnv(); err != nil {
+	// Kunci enkripsi untuk token GitHub dan hashing session. Mode dev_login
+	// boleh memakai kunci fallback; production wajib membawa secret kuat.
+	if err := secure.LoadFromEnvWithPolicy(cfg.Server.DevLogin); err != nil {
 		log.Fatalf("Failed to prepare the encryption key: %v", err)
 	}
 

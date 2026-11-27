@@ -27,7 +27,7 @@ Verifikasi standar: `cd backend && go test ./... -count=1`, `go vet ./...`, `cd 
 | H2 | Origin guard mempercayai `Host` request | `backend/internal/server/csrf.go` | Done | Shortcut `c.Request.Host` dihapus; hanya `CORS_ORIGINS` yang dipercaya. |
 | H3 | Trusted proxy / IP mismatch merusak rate limit & cookie Secure | `backend/internal/server/router.go`, `ratelimit.go` | Done | `TRUSTED_PROXIES` (CIDR) dipakai Gin + penanda `trustedProxy`; Cloudflare `CF-Connecting-IP` dipakai untuk IP klien; header proto hanya dipercaya dari proxy tepercaya. Production wajib isi rentang Cloudflare. |
 | H4 | `http.Server` tanpa timeout | `backend/internal/server/server.go` | Done | `ReadHeaderTimeout=5s`, `ReadTimeout=2m`, `WriteTimeout=10m`, `IdleTimeout=60s`; ada test. |
-| H5 | Fallback encryption key publik saat `SESSION_SECRET` kosong | `backend/internal/secure/secure.go` | Pending | Fail startup di production. |
+| H5 | Fallback encryption key publik saat `SESSION_SECRET` kosong | `backend/internal/secure/secure.go` | Done | Production gagal start bila secret kosong/<32 char; fallback hanya saat `DEV_LOGIN=true`. |
 | H6 | Data project lama tampil saat pindah ke project lain yang gagal dimuat | `frontend/src/lib/ProjectDetail.svelte` | Pending | Clear state saat `id` berubah. |
 | H7 | Guard availability:/submit belum menunggu hasil check sukses | `frontend/src/lib/CreateProject.svelte`, `Hero.svelte` | Pending | Wajib `available === true`. |
 | H8 | Repo URL arbitrary bisa lolos ke submit | `frontend/src/lib/CreateProject.svelte` | Pending | Validasi hostname GitHub. |
@@ -84,3 +84,4 @@ Verifikasi standar: `cd backend && go test ./... -count=1`, `go vet ./...`, `cd 
 - 2026-11-27 — H2 done: origin guard tidak lagi mempercayai header Host.
 - 2026-11-27 — H3 done: trusted proxy dikonfigurasi; IP klien & deteksi HTTPS tidak bisa dipalsukan client langsung.
 - 2026-11-27 — H4 done: timeout HTTP server ditambahkan.
+- 2026-11-27 — H5 done: production wajib SESSION_SECRET minimal 32 karakter.

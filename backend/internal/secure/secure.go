@@ -17,6 +17,9 @@ import (
 // data lama (plaintext) agar session yang sudah ada tetap terbaca.
 const prefixVersion = "v1:"
 
+// minSecretLength adalah panjang minimum SESSION_SECRET untuk mode produksi.
+const minSecretLength = 32
+
 var aead cipher.AEAD
 
 // Init menginisialisasi kunci enkripsi dari SESSION_SECRET.
@@ -40,8 +43,34 @@ func Init(secret string) error {
 }
 
 // LoadFromEnv adalah jalan pintas untuk Init(os.Getenv("SESSION_SECRET")).
+// Dipakai test dan mode dev; production memakai LoadFromEnvWithPolicy.
 func LoadFromEnv() error {
 	return Init(os.Getenv("SESSION_SECRET"))
+}
+
+// LoadFromEnvWithPolicy menolak secret kosong atau pendek kecuali allowInsecure
+// (DEV_LOGIN) aktif. Ini mencegah production diam-diam memakai kunci fallback
+// yang sudah diketahui publik.
+func LoadFromEnvWithPolicy(allowInsecure bool) error {
+	secret := os.Getenv("SESSION_SECRET")
+	if !allowInsecure {
+		if err := ValidateSecret(secret); err != nil {
+			return err
+		}
+	}
+	return Init(secret)
+}
+
+// ValidateSecret memeriksa panjang SESSION_SECRET untuk production.
+func ValidateSecret(secret string) error {
+	trimmed := strings.TrimSpace(secret)
+	if trimmed == "" {
+		return fmt.Errorf("SESSION_SECRET is required in production (generate with: openssl rand -hex 32)")
+	}
+	if len(trimmed) < minSecretLength {
+		return fmt.Errorf("SESSION_SECRET must be at least %d characters in production", minSecretLength)
+	}
+	return nil
 }
 
 // Encrypt mengenkripsi plaintext dengan AES-256-GCM.

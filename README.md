@@ -226,7 +226,7 @@ Backend endpoints:
 
 - Run builds only from repositories you trust: install and build scripts execute on
   the host with the server process user. Builds are always local (`build mode: local`).
-- Keep `DEV_LOGIN` disabled in production, set a strong random `SESSION_SECRET`, and
+- Keep `DEV_LOGIN` disabled in production, set a random `SESSION_SECRET` of at least 32 characters, and
   restrict `CORS_ORIGINS` to your real frontend origins.
 - `backend/data/` holds the SQLite database and published sites. It is runtime state,
   not source code; only a `.gitkeep` placeholder is tracked.

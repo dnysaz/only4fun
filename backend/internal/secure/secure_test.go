@@ -1,6 +1,22 @@
 package secure
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
+
+func TestValidateSecret(t *testing.T) {
+	if err := ValidateSecret(""); err == nil {
+		t.Fatal("empty SESSION_SECRET must be rejected")
+	}
+	if err := ValidateSecret("too-short"); err == nil {
+		t.Fatal("short SESSION_SECRET must be rejected")
+	}
+	strong := strings.Repeat("a", minSecretLength)
+	if err := ValidateSecret(strong); err != nil {
+		t.Fatalf("strong SESSION_SECRET rejected: %v", err)
+	}
+}
 
 func TestEncryptDecryptRoundTrip(t *testing.T) {
 	if err := Init("test-secret"); err != nil {
