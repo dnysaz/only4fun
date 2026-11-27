@@ -118,6 +118,24 @@ func TestAuthMiddlewareRevokedTokenEndsSession(t *testing.T) {
 	}
 }
 
+func TestIsHTTPSRequiresTrustedProxy(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	check := func(trusted bool) bool {
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest(http.MethodGet, "/", nil)
+		c.Request.Header.Set("X-Forwarded-Proto", "https")
+		c.Set("trustedProxy", trusted)
+		return isHTTPS(c)
+	}
+
+	if check(false) {
+		t.Error("forwarded proto from an untrusted peer must be ignored")
+	}
+	if !check(true) {
+		t.Error("forwarded proto from a trusted proxy must be honored")
+	}
+}
+
 func TestAuthMiddlewareAllowsRateLimitedToken(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)

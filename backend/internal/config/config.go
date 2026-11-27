@@ -22,6 +22,9 @@ type ServerConfig struct {
 	FrontendURL string `env:"FRONTEND_URL" default:"http://localhost:5173"`
 	// CORSOrigins membatasi origin yang boleh mengakses API.
 	CORSOrigins []string
+	// TrustedProxies berisi CIDR proxy yang boleh mengirim X-Forwarded-For,
+	// CF-Connecting-IP, dan X-Forwarded-Proto. Default: loopback saja.
+	TrustedProxies []string
 	// DevLogin mengaktifkan /auth/dev-login (akun dummy tanpa GitHub OAuth).
 	// Hanya untuk pengembangan lokal.
 	DevLogin bool
@@ -58,10 +61,11 @@ func Load() (*Config, error) {
 	godotenv.Load()
 	cfg := &Config{
 		Server: ServerConfig{
-			Addr:        getEnv("SERVER_ADDR", ":8080"),
-			FrontendURL: getEnv("FRONTEND_URL", "http://localhost:5173"),
-			CORSOrigins: getEnvList("CORS_ORIGINS", "http://localhost:5173,http://localhost:8080"),
-			DevLogin:    getEnvBool("DEV_LOGIN", false),
+			Addr:           getEnv("SERVER_ADDR", ":8080"),
+			FrontendURL:    getEnv("FRONTEND_URL", "http://localhost:5173"),
+			CORSOrigins:    getEnvList("CORS_ORIGINS", "http://localhost:5173,http://localhost:8080"),
+			TrustedProxies: getEnvList("TRUSTED_PROXIES", "127.0.0.1,::1"),
+			DevLogin:       getEnvBool("DEV_LOGIN", false),
 		},
 		Database: DatabaseConfig{
 			Path: getEnv("DATABASE_PATH", "data/only4.fun.db"),

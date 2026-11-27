@@ -75,13 +75,17 @@ func NewAuthHandler(clientID, clientSecret, redirectURL, frontendURL string, use
 }
 
 // isHTTPS menentukan apakah request asli dari browser memakai HTTPS.
-// Di belakang Cloudflare/nginx TLS berhenti di proxy, sehingga r.TLS nil;
-// header X-Forwarded-Proto / CF-Visitor dipakai sebagai sumber kebenaran.
+// Header forwarding hanya dipakai bila peer langsung adalah proxy tepercaya;
+// penanda TrustedProxyMiddleware diset di router.
 func isHTTPS(c *gin.Context) bool {
 	if c.Request.TLS != nil {
 		return true
 	}
-	if strings.EqualFold(strings.TrimSpace(c.GetHeader("X-Forwarded-Proto")), "https") {
+	if !c.GetBool("trustedProxy") {
+		return false
+	}
+	proto := strings.TrimSpace(strings.Split(c.GetHeader("X-Forwarded-Proto"), ",")[0])
+	if strings.EqualFold(proto, "https") {
 		return true
 	}
 	if strings.Contains(strings.ToLower(c.GetHeader("CF-Visitor")), `"scheme":"https"`) {

@@ -53,6 +53,42 @@ func TestTrustedOriginGuard(t *testing.T) {
 	}
 }
 
+func TestRateLimitByIPUsesTrustedProxyHeaders(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	if err := r.SetTrustedProxies([]string{"10.0.0.0/8"}); err != nil {
+		t.Fatal(err)
+	}
+	r.RemoteIPHeaders = []string{"CF-Connecting-IP", "X-Forwarded-For"}
+	r.POST("/instant", RateLimitByIP(1, time.Minute), func(c *gin.Context) {
+		c.String(http.StatusOK, "ok")
+	})
+
+	call := func(peer, clientIP string) int {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/instant", nil)
+		req.RemoteAddr = peer
+		if clientIP != "" {
+			req.Header.Set("CF-Connecting-IP", clientIP)
+		}
+		r.ServeHTTP(w, req)
+		return w.Code
+	}
+
+	if got := call("10.0.0.1:1111", "203.0.113.10"); got != http.StatusOK {
+		t.Fatalf("first trusted request = %d, want 200", got)
+	}
+	if got := call("10.0.0.1:1111", "203.0.113.11"); got != http.StatusOK {
+		t.Fatalf("second client should get a fresh bucket, got %d", got)
+	}
+	if got := call("10.0.0.1:1111", "203.0.113.10"); got != http.StatusTooManyRequests {
+		t.Fatalf("same client should be rate limited, got %d", got)
+	}
+	if got := call("192.0.2.9:2222", "203.0.113.10"); got != http.StatusOK {
+		t.Fatalf("spoofed header from untrusted peer must be ignored, got %d", got)
+	}
+}
+
 func TestRateLimitByIPIgnoresForgedCookies(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()

@@ -25,7 +25,7 @@ Verifikasi standar: `cd backend && go test ./... -count=1`, `go vet ./...`, `cd 
 |---|---|---|---|---|
 | H1 | Token GitHub revoked hanya dicek di `/auth/me`, bukan middleware | `backend/internal/handler/auth_middleware.go`, `auth.go` | Done | `githubTokenValid` dipakai AuthMiddleware + GetMe, cache 60 detik, session revoked dihapus dan cookie dibersihkan. |
 | H2 | Origin guard mempercayai `Host` request | `backend/internal/server/csrf.go` | Done | Shortcut `c.Request.Host` dihapus; hanya `CORS_ORIGINS` yang dipercaya. |
-| H3 | Trusted proxy / IP mismatch merusak rate limit & cookie Secure | `backend/internal/server/router.go`, `ratelimit.go` | Pending | Konfigurasi trusted proxy. |
+| H3 | Trusted proxy / IP mismatch merusak rate limit & cookie Secure | `backend/internal/server/router.go`, `ratelimit.go` | Done | `TRUSTED_PROXIES` (CIDR) dipakai Gin + penanda `trustedProxy`; Cloudflare `CF-Connecting-IP` dipakai untuk IP klien; header proto hanya dipercaya dari proxy tepercaya. Production wajib isi rentang Cloudflare. |
 | H4 | `http.Server` tanpa timeout | `backend/internal/server/server.go` | Pending | Tambah read/idle/write timeout. |
 | H5 | Fallback encryption key publik saat `SESSION_SECRET` kosong | `backend/internal/secure/secure.go` | Pending | Fail startup di production. |
 | H6 | Data project lama tampil saat pindah ke project lain yang gagal dimuat | `frontend/src/lib/ProjectDetail.svelte` | Pending | Clear state saat `id` berubah. |
@@ -82,3 +82,4 @@ Verifikasi standar: `cd backend && go test ./... -count=1`, `go vet ./...`, `cd 
 - 2026-11-27 — C2 done: ZIP tidak bisa memicu SSR; test + vet lulus.
 - 2026-11-27 — H1 done: revoked GitHub token dicek di middleware (cache 60s); M8 juga tertutup (403 tidak logout).
 - 2026-11-27 — H2 done: origin guard tidak lagi mempercayai header Host.
+- 2026-11-27 — H3 done: trusted proxy dikonfigurasi; IP klien & deteksi HTTPS tidak bisa dipalsukan client langsung.

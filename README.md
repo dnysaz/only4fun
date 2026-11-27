@@ -175,6 +175,7 @@ Backend variables (see `backend/.env.example`):
 | `SERVER_ADDR` | `:8080` | API listen address |
 | `FRONTEND_URL` | `http://localhost:5173` | Post-login redirect target |
 | `CORS_ORIGINS` | localhost origins | Comma-separated allowed origins |
+| `TRUSTED_PROXIES` | loopback | CIDRs allowed to set forwarding headers; set Cloudflare ranges in production |
 | `DEV_LOGIN` | `false` | Enable loopback-only demo login |
 | `DATABASE_PATH` | `data/only4.fun.db` | SQLite file path |
 | `SESSION_SECRET` | empty | Encrypts tokens and hashes sessions; required in production |

@@ -10,6 +10,7 @@ import (
 	"only4.fun/backend/internal/database"
 	"only4.fun/backend/internal/dns"
 	"only4.fun/backend/internal/handler"
+	"only4.fun/backend/internal/proxytrust"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -35,11 +36,19 @@ func NewStores(db *database.Database) *Stores {
 // NewRouter membuat Gin engine dengan semua route terdaftar.
 func NewRouter(cfg *config.Config, db *database.Database, worker *builder.Worker, pm *ProcessManager) *gin.Engine {
 	r := gin.Default()
-	// Percayai hanya reverse proxy lokal (nginx) agar X-Forwarded-For tidak
-	// bisa dipalsukan untuk melewati rate limit.
-	if err := r.SetTrustedProxies([]string{"127.0.0.1", "::1"}); err != nil {
+
+	// Hanya proxy yang dikonfigurasi yang boleh menentukan IP asli dan skema
+	// HTTPS lewat header. Default-nya loopback; di belakang Cloudflare, isi
+	// TRUSTED_PROXIES dengan rentang IP Cloudflare.
+	trust, err := proxytrust.New(cfg.Server.TrustedProxies)
+	if err != nil {
 		panic(err)
 	}
+	if err := r.SetTrustedProxies(trust.Entries()); err != nil {
+		panic(err)
+	}
+	r.RemoteIPHeaders = []string{"CF-Connecting-IP", "X-Forwarded-For", "X-Real-IP"}
+	r.Use(TrustedProxyMiddleware(trust))
 
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     cfg.Server.CORSOrigins,
