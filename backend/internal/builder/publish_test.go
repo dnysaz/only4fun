@@ -64,6 +64,32 @@ func TestPublishSwapsReleaseAndKeepsBackup(t *testing.T) {
 	}
 }
 
+// Entry rilis yang rusak (symlink menggantung) tidak boleh membuat panic saat
+// publish mencari rilis sebelumnya.
+func TestPublishIgnoresBrokenReleaseEntry(t *testing.T) {
+	root := t.TempDir()
+	src := filepath.Join(root, "src")
+	dst := filepath.Join(root, "sites", "demo")
+
+	writeSite(t, src, "v1")
+	if err := publish(src, dst); err != nil {
+		t.Fatal(err)
+	}
+
+	broken := filepath.Join(root, "sites", ".releases", "demo", "broken")
+	if err := os.Symlink(filepath.Join(root, "missing-target"), broken); err != nil {
+		t.Fatal(err)
+	}
+
+	writeSite(t, src, "v2")
+	if err := publish(src, dst); err != nil {
+		t.Fatalf("publish dengan entry rusak gagal: %v", err)
+	}
+	if got := readIndex(t, dst); got != "v2" {
+		t.Fatalf("isi situs = %q, ingin %q", got, "v2")
+	}
+}
+
 // Instalasi lama menyimpan situs sebagai direktori biasa; publish harus
 // memindahkannya ke folder rilis tanpa kehilangan file.
 func TestPublishMigratesLegacyDirectory(t *testing.T) {

@@ -455,7 +455,12 @@ func publish(src, dst string) error {
 		}
 		var rels []relInfo
 		for _, e := range entries {
-			info, _ := e.Info()
+			// Info() mengikuti symlink; entry bisa hilang atau rusak saat
+			// housekeeping berjalan. Jangan pernah memakai info nil.
+			info, err := e.Info()
+			if err != nil || info == nil {
+				continue
+			}
 			rels = append(rels, relInfo{name: e.Name(), mod: info.ModTime()})
 		}
 		sort.Slice(rels, func(i, j int) bool { return rels[i].mod.After(rels[j].mod) })
