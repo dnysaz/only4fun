@@ -95,6 +95,9 @@ func TestCreateProjectRejectsInvalidPayload(t *testing.T) {
 		{"nama terlalu pendek", `{"repo_url": "https://github.com/a/b.git", "subdomain": "ab", "env_vars": {}}`},
 		{"nama pakai spasi", `{"repo_url": "https://github.com/a/b.git", "subdomain": "bad name", "env_vars": {}}`},
 		{"env key tidak valid", `{"repo_url": "https://github.com/a/b.git", "subdomain": "valid-name", "env_vars": {"1BAD": "x"}}`},
+		{"env PATH ditolak", `{"repo_url": "https://github.com/a/b.git", "subdomain": "valid-name", "env_vars": {"PATH": "/tmp/evil"}}`},
+		{"env LD_PRELOAD ditolak", `{"repo_url": "https://github.com/a/b.git", "subdomain": "valid-name", "env_vars": {"LD_PRELOAD": "/tmp/evil.so"}}`},
+		{"env NODE_OPTIONS ditolak", `{"repo_url": "https://github.com/a/b.git", "subdomain": "valid-name", "env_vars": {"NODE_OPTIONS": "--require /tmp/evil.js"}}`},
 		{"payload rusak", `{`},
 	}
 	for _, tc := range cases {

@@ -16,6 +16,7 @@ import (
 	"only4.fun/backend/internal/builder"
 	"only4.fun/backend/internal/database"
 	"only4.fun/backend/internal/dns"
+	"only4.fun/backend/internal/execenv"
 	idgen "only4.fun/backend/internal/id"
 
 	"github.com/gin-gonic/gin"
@@ -145,6 +146,9 @@ func validateEnvKeys(envVars map[string]string) error {
 		}
 		if !isValidEnvKey(k) {
 			return fmt.Errorf("invalid environment variable name %q: use letters, numbers and underscores, starting with a letter or underscore", k)
+		}
+		if execenv.IsReservedKey(k) {
+			return fmt.Errorf("environment variable %q is reserved by the platform", k)
 		}
 	}
 	return nil

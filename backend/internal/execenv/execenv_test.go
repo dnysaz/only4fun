@@ -5,6 +5,33 @@ import (
 	"testing"
 )
 
+func TestWithUserEnvCannotOverrideInternalValues(t *testing.T) {
+	t.Setenv("PATH", "/server/bin")
+	base := Base("/tmp/only4-fun-home")
+	env := strings.Join(WithUserEnv(base, map[string]string{
+		"PATH":         "/tmp/evil",
+		"HOME":         "/tmp/evil",
+		"LD_PRELOAD":   "/tmp/evil.so",
+		"NODE_OPTIONS": "--require /tmp/evil.js",
+		"SUPABASE_URL": "https://example.supabase.co",
+	}), "\n")
+
+	if !strings.Contains(env, "PATH=/server/bin") {
+		t.Errorf("user PATH replaced the sandbox PATH: %s", env)
+	}
+	if !strings.Contains(env, "HOME=/tmp/only4-fun-home") {
+		t.Errorf("user HOME replaced the sandbox HOME: %s", env)
+	}
+	if !strings.Contains(env, "SUPABASE_URL=https://example.supabase.co") {
+		t.Errorf("valid user env var was dropped: %s", env)
+	}
+	for _, needle := range []string{"/tmp/evil", "LD_PRELOAD=", "NODE_OPTIONS="} {
+		if strings.Contains(env, needle) {
+			t.Errorf("WithUserEnv leaked %q", needle)
+		}
+	}
+}
+
 func TestBaseDoesNotLeakServerSecrets(t *testing.T) {
 	t.Setenv("SESSION_SECRET", "test-session-secret-value")
 	t.Setenv("GITHUB_CLIENT_SECRET", "test-github-secret-value")

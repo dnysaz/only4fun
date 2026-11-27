@@ -8,6 +8,7 @@ package execenv
 import (
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 // Base returns the only variables that untrusted child processes need.
@@ -25,6 +26,39 @@ func Base(home string) []string {
 		"npm_config_update_notifier=false",
 		"CI=1",
 	}
+}
+
+// reservedKeys must never be supplied by project owners. They either replace
+// the sandbox PATH/HOME, preload native code into build tools, or inject Node
+// flags into every build script.
+var reservedKeys = map[string]struct{}{
+	"PATH": {}, "HOME": {}, "TMPDIR": {}, "TEMP": {}, "TMP": {}, "SHELL": {},
+	"BASH_ENV": {}, "ENV": {}, "CDPATH": {}, "IFS": {},
+	"LD_PRELOAD": {}, "LD_LIBRARY_PATH": {}, "DYLD_INSERT_LIBRARIES": {},
+	"DYLD_LIBRARY_PATH": {}, "DYLD_FRAMEWORK_PATH": {},
+	"NODE_OPTIONS": {}, "NODE_PATH": {}, "PORT": {},
+	"NPM_CONFIG_CACHE": {}, "NPM_CONFIG_PREFIX": {}, "NPM_CONFIG_USERCONFIG": {},
+}
+
+// IsReservedKey reports whether a key may be overridden by user-provided env.
+func IsReservedKey(key string) bool {
+	upper := strings.ToUpper(strings.TrimSpace(key))
+	_, reserved := reservedKeys[upper]
+	return reserved
+}
+
+// WithUserEnv merges validated project env vars into the isolated base env.
+// Internal values are appended last: os/exec keeps the last duplicate, so a
+// legacy value stored in the database still cannot replace PATH/HOME/CI.
+func WithUserEnv(base []string, user map[string]string) []string {
+	env := make([]string, 0, len(user)+len(base))
+	for key, value := range user {
+		if key == "" || IsReservedKey(key) {
+			continue
+		}
+		env = append(env, key+"="+value)
+	}
+	return append(env, base...)
 }
 
 // EnsureHome creates the HOME directory used by Base so npm can write its cache.

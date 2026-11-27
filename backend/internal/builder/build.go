@@ -243,11 +243,9 @@ func (b *Builder) runBuild(ctx context.Context, job Job, workDir string, logf fu
 func (b *Builder) exec(ctx context.Context, job Job, workDir, command string, logf func(string)) error {
 	cmd := exec.CommandContext(ctx, "sh", "-lc", command)
 	cmd.Dir = workDir
-	env := execenv.Base(b.envHome())
-	for k, v := range job.EnvVars {
-		env = append(env, k+"="+v)
-	}
-	cmd.Env = env
+	// User-supplied keys are validated by the handler; the merge is repeated
+	// here so legacy rows cannot override sandbox PATH/HOME or inject flags.
+	cmd.Env = execenv.WithUserEnv(execenv.Base(b.envHome()), job.EnvVars)
 
 	stdout, pipeErr := cmd.StdoutPipe()
 	if pipeErr != nil {
