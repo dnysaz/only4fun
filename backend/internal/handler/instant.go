@@ -23,6 +23,7 @@ import (
 	"only4.fun/backend/internal/builder"
 	"only4.fun/backend/internal/database"
 	"only4.fun/backend/internal/dns"
+	"only4.fun/backend/internal/execenv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -46,6 +47,9 @@ const (
 
 	// Batas preview tree supaya halaman tidak memuat terlalu banyak baris.
 	instantTreeLimit = 2000
+
+	// Kuota repo instan mengikuti batas upload ZIP (100 MB).
+	maxInstantRepoBytes = 100 << 20
 )
 
 var githubOwnerRepoPattern = regexp.MustCompile(`^[A-Za-z0-9_.-]+$`)
@@ -420,7 +424,17 @@ func (h *InstantHandler) DeployRepo(c *gin.Context) {
 	}
 	defer os.RemoveAll(workDir)
 
+	// Cek metadata GitHub lebih dulu (best effort) supaya repo besar tidak
+	// perlu di-clone. Pemeriksaan ukuran after-clone tetap dilakukan di bawah.
+	if err := h.checkInstantRepoSize(ctx, req.RepoURL); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	if err := cloneStaticRepo(ctx, req.RepoURL, workDir); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := checkDirSize(workDir, maxInstantRepoBytes); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -657,13 +671,66 @@ func randomInstantSubdomain() (string, error) {
 	return string(out), nil
 }
 
+// checkInstantRepoSize membersihkan git lewat metadata API bila tersedia.
+// Gagalnya API tidak memblokir deploy; checkDirSize tetap menjadi pengaman.
+func (h *InstantHandler) checkInstantRepoSize(ctx context.Context, repoURL string) error {
+	owner, repo, err := instantGithubOwnerRepo(repoURL)
+	if err != nil {
+		return nil
+	}
+	base := h.githubAPI
+	if base == "" {
+		base = "https://api.github.com"
+	}
+	var meta struct {
+		Size int64 `json:"size"` // KB, dari GitHub REST API.
+	}
+	if err := h.githubJSON(ctx, base+"/repos/"+owner+"/"+repo, &meta); err != nil {
+		return nil
+	}
+	if meta.Size > maxInstantRepoBytes/1024 {
+		return fmt.Errorf("this repository is too large to deploy instantly (maximum %d MB)", maxInstantRepoBytes>>20)
+	}
+	return nil
+}
+
+// checkDirSize menjumlahkan file di workDir tanpa mengikuti symlink.
+// Folder .git tidak dihitung karena tidak pernah disajikan ke pengunjung.
+func checkDirSize(root string, limit int64) error {
+	total := int64(0)
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			if path != root && info.Name() == ".git" {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			return nil
+		}
+		total += info.Size()
+		if total > limit {
+			return fmt.Errorf("the site is too large to deploy instantly (maximum %d MB)", limit>>20)
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func cloneStaticRepo(ctx context.Context, repoURL string, workDir string) error {
 	if _, err := exec.LookPath("git"); err != nil {
 		return errors.New("git is not available on the server")
 	}
 	// "--" mencegah URL dibaca git sebagai opsi, bukan argumen.
 	cmd := exec.CommandContext(ctx, "git", "clone", "--depth", "1", "--quiet", "--", repoURL, workDir)
-	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	// Jangan pernah meneruskan environment server yang berisi secret.
+	cmd.Env = append(execenv.Base(""), "GIT_TERMINAL_PROMPT=0")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		// Output git tidak dipercaya: buang control character/newline supaya

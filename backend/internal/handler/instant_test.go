@@ -26,6 +26,19 @@ func TestRandomInstantSubdomain(t *testing.T) {
 	}
 }
 
+func TestCheckDirSize(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "index.html"), []byte("1234567890"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := checkDirSize(dir, 5); err == nil {
+		t.Fatal("oversized directory was accepted")
+	}
+	if err := checkDirSize(dir, 100); err != nil {
+		t.Fatalf("small directory rejected: %v", err)
+	}
+}
+
 func resetInstantReservationsForTest() {
 	instantReservationMu.Lock()
 	defer instantReservationMu.Unlock()
