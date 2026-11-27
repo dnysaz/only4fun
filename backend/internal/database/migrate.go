@@ -51,6 +51,19 @@ const schema = `
 		PRIMARY KEY (project_id, day),
 		FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
 	);
+
+	CREATE TABLE IF NOT EXISTS audit_logs (
+		id TEXT PRIMARY KEY,
+		user_id TEXT,
+		action TEXT NOT NULL,
+		target TEXT NOT NULL DEFAULT '',
+		ip TEXT NOT NULL DEFAULT '',
+		status INTEGER NOT NULL DEFAULT 0,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_audit_logs_user_created ON audit_logs(user_id, created_at DESC);
 `
 
 // Migrate menyiapkan skema. Database lama yang masih memakai id INTEGER

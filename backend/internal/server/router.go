@@ -25,6 +25,7 @@ type Stores struct {
 	Session    *database.SessionStore
 	Project    *database.ProjectStore
 	Deployment *database.DeploymentStore
+	Audit      *database.AuditStore
 }
 
 func NewStores(db *database.Database) *Stores {
@@ -33,6 +34,7 @@ func NewStores(db *database.Database) *Stores {
 		Session:    database.NewSessionStore(db),
 		Project:    database.NewProjectStore(db),
 		Deployment: database.NewDeploymentStore(db),
+		Audit:      database.NewAuditStore(db),
 	}
 }
 
@@ -162,6 +164,7 @@ func NewRouter(cfg *config.Config, db *database.Database, worker *builder.Worker
 	api := r.Group("/api")
 	api.Use(originGuard)
 	api.Use(handler.AuthMiddleware(sessionStore))
+	api.Use(AuditMiddleware(stores.Audit))
 	{
 		api.GET("/auth/me", authHandler.GetMe)
 		api.POST("/auth/logout", authHandler.Logout)
