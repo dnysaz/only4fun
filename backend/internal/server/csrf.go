@@ -36,9 +36,10 @@ func TrustedOriginGuard(allowedOrigins []string) gin.HandlerFunc {
 			return
 		}
 		normalized := strings.ToLower(u.Scheme + "://" + u.Host)
-		// Origin aplikasi itu sendiri juga valid bila request datang langsung
-		// dari halaman backend (mis. form di domain yang sama).
-		if allowed[normalized] || strings.EqualFold(u.Host, c.Request.Host) {
+		// Hanya origin yang dikonfigurasi eksplisit yang dipercaya. Memakai
+		// c.Request.Host di sini tidak aman: Host dikirim klien dan bisa diarahkan
+		// ke IP backend oleh domain penyerang.
+		if allowed[normalized] {
 			c.Next()
 			return
 		}

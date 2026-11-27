@@ -37,9 +37,10 @@ func TestTrustedOriginGuard(t *testing.T) {
 	}{
 		{"allowed frontend", "http://localhost:5173", "localhost:8080", http.StatusOK},
 		{"allowed production", "https://only4.fun", "api.only4.fun", http.StatusOK},
-		{"same origin", "http://localhost:8080", "localhost:8080", http.StatusOK},
+		{"host shortcut removed", "http://localhost:8080", "localhost:8080", http.StatusForbidden},
 		{"no origin (non-browser)", "", "localhost:8080", http.StatusOK},
 		{"evil origin", "https://evil.example", "localhost:8080", http.StatusForbidden},
+		{"attacker host pointed at backend", "http://attacker.example", "attacker.example", http.StatusForbidden},
 		{"null origin", "null", "localhost:8080", http.StatusForbidden},
 		{"lookalike host", "http://localhost:5173.evil.example", "localhost:8080", http.StatusForbidden},
 	}
