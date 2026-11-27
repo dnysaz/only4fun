@@ -160,9 +160,14 @@
   }
 
   async function refreshLive() {
-    if (!id) return;
+    const requestedId = id;
+    if (!requestedId) return;
     try {
-      const [detail, history] = await Promise.all([api.getProject(id), api.deployments(id)]);
+      const [detail, history] = await Promise.all([
+        api.getProject(requestedId),
+        api.deployments(requestedId),
+      ]);
+      if (requestedId !== id) return;
       project = detail?.project ?? project;
       const incoming = history?.deployments ?? [];
 
@@ -190,6 +195,7 @@
         livePolling = false;
       }
     } catch (err) {
+      if (requestedId !== id) return;
       error = err?.message ?? 'Could not refresh the build log';
       livePolling = false;
     }
@@ -200,12 +206,29 @@
   }
 
   async function load() {
-    if (!id) return;
-    loading = true;
+    const requestedId = id;
+    if (!requestedId) return;
+
+    // Jangan pernah tampilkan data project sebelumnya saat pindah ke project lain.
+    project = null;
+    deployments = [];
+    envRows = [];
+    domain = '';
+    domainState = 'none';
+    domainStatusMessage = '';
+    notice = '';
     error = '';
+    livePolling = false;
+    liveLogId = '';
     visibleHistory = HISTORY_PAGE;
+    loading = true;
+
     try {
-      const [detail, history] = await Promise.all([api.getProject(id), api.deployments(id)]);
+      const [detail, history] = await Promise.all([
+        api.getProject(requestedId),
+        api.deployments(requestedId),
+      ]);
+      if (requestedId !== id) return;
       project = detail?.project ?? null;
       const incoming = history?.deployments ?? [];
       deployments = withOpenState(incoming);
@@ -216,9 +239,10 @@
       domain = project?.custom_domain ?? '';
       loadDomainStatus();
     } catch (err) {
+      if (requestedId !== id) return;
       error = err?.message ?? 'Could not load the project';
     } finally {
-      loading = false;
+      if (requestedId === id) loading = false;
     }
   }
 
