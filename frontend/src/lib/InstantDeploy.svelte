@@ -1002,6 +1002,8 @@
 
     .source {
       padding-right: 0;
+      /* Beri ruang di bawah tombol sebelum garis pemisah File tree. */
+      padding-bottom: 28px;
     }
 
     .tree-panel {
