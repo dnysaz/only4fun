@@ -81,6 +81,11 @@
     drawerOpen = false;
   }
 
+  function goLaunchpadFromDrawer(event) {
+    closeDrawer();
+    goDashboard(event);
+  }
+
   function signOutFromDrawer() {
     closeDrawer();
     onSignOut?.();
@@ -176,6 +181,19 @@
       <span>Only4fun account</span>
     </div>
   </div>
+
+  <a class="drawer-item launchpad" href="/launchpad" onclick={goLaunchpadFromDrawer}>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </svg>
+    <span>Launchpad</span>
+    <svg class="drawer-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="m9 6 6 6-6 6" />
+    </svg>
+  </a>
 
   {#if onSignOut}
     <button class="drawer-item danger" type="button" onclick={signOutFromDrawer}>
@@ -417,20 +435,40 @@
     font-size: 14px;
   }
 
-  /* Sama seperti tombol Delete project: pill outline merah, isi merah. */
-  button.drawer-item {
+  /* Sama seperti tombol Delete project: pill outline, isi mengikuti warna. */
+  .drawer-item {
     display: flex;
     align-items: center;
     gap: 12px;
     width: 100%;
     min-height: 52px;
+    margin-bottom: 10px;
     padding: 13px 20px;
     border: 1.5px solid var(--muted);
     border-radius: 999px;
     background: transparent;
-    color: var(--red);
+    color: var(--ink);
     font: 600 16px/1 'Gabarito', sans-serif;
     text-align: left;
+    text-decoration: none;
+  }
+
+  .drawer-item:last-child {
+    margin-bottom: 0;
+  }
+
+  a.drawer-item.launchpad {
+    border-color: var(--blue);
+    color: var(--blue);
+  }
+
+  a.drawer-item.launchpad:hover {
+    background: var(--blue);
+    color: #fff;
+  }
+
+  button.drawer-item.danger {
+    color: var(--red);
   }
 
   button.drawer-item:hover:not(:disabled) {
@@ -438,9 +476,16 @@
     color: #fff !important;
   }
 
-  button.drawer-item svg {
+  .drawer-item svg {
     width: 20px;
     height: 20px;
+    flex: none;
+  }
+
+  .drawer-item .drawer-chevron {
+    width: 18px;
+    height: 18px;
+    margin-left: auto;
   }
 
   @media (min-width: 701px) {
