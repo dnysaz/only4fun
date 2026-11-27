@@ -6,6 +6,7 @@
   import { buildTreeRows, normalizeTreePaths } from './fileTree.js';
   import { listZipPaths } from './zipTree.js';
   import { session, signOut } from './session.svelte.js';
+  import { navigate } from './router.svelte.js';
 
   let { preset = '', onCreated } = $props();
 
@@ -20,6 +21,7 @@
   let submitting = $state(false);
   let error = $state('');
   let done = $state('');
+  let projectId = $state('');
 
   let check = $state({ name: '', available: null, error: '', checking: false });
   let tree = $state({ paths: [], loading: false, error: '', truncated: false });
@@ -43,7 +45,17 @@
   let accepted = $state(false);
 
   const emptyTree = { paths: [], loading: false, error: '', truncated: false };
-  const isValidEnvKey = (key) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(key) && key.length <= 256;
+  // Sama seperti backend/internal/execenv: kunci ini milik sandbox build.
+  const RESERVED_ENV_KEYS = new Set([
+    'PATH', 'HOME', 'TMPDIR', 'TEMP', 'TMP', 'SHELL', 'BASH_ENV', 'ENV', 'CDPATH', 'IFS',
+    'LD_PRELOAD', 'LD_LIBRARY_PATH', 'DYLD_INSERT_LIBRARIES', 'DYLD_LIBRARY_PATH',
+    'DYLD_FRAMEWORK_PATH', 'NODE_OPTIONS', 'NODE_PATH', 'PORT',
+    'NPM_CONFIG_CACHE', 'NPM_CONFIG_PREFIX', 'NPM_CONFIG_USERCONFIG',
+  ]);
+  const isValidEnvKey = (key) =>
+    /^[A-Za-z_][A-Za-z0-9_]*$/.test(key) &&
+    key.length <= 256 &&
+    !RESERVED_ENV_KEYS.has(key.toUpperCase());
 
   let nameCheck = $derived(validateName(name));
   let sourceValid = $derived(tab === 'zip' ? !!file : isValidGitHubRepoUrl(repoUrl));
@@ -149,6 +161,17 @@
     return () => clearTimeout(timer);
   });
 
+  // Same pattern as Instant Deploy: every source/name change needs a fresh
+  // acceptance. This never clears the name, so picker auto-fill and manual
+  // names (plus ZIP clearing the name) keep working as before.
+  $effect(() => {
+    tab;
+    repoUrl;
+    file;
+    name;
+    accepted = false;
+  });
+
   // Load the signed-in user's repositories once when the repo tab is active.
   $effect(() => {
     const user = session.user?.username ?? '';
@@ -244,6 +267,7 @@
     tab = next;
     error = '';
     done = '';
+    projectId = '';
     if (next === 'zip') {
       // ZIP belum punya nama sampai di-upload atau diketik user.
       name = '';
@@ -251,10 +275,16 @@
     }
   }
 
+  function goProject(event) {
+    event.preventDefault();
+    if (projectId) navigate(`/project/${projectId}`);
+  }
+
   async function submit(event) {
     event.preventDefault();
     error = '';
     done = '';
+    projectId = '';
 
     if (!nameCheck.ok) {
       error =
@@ -304,6 +334,7 @@
           : await api.createProject({ repoUrl: repoUrl.trim(), subdomain: name, envVars });
 
       done = `${data?.project?.subdomain ?? name}.only4.fun is queued. Build starts in a moment.`;
+      projectId = data?.project?.id ?? '';
       repoUrl = '';
       file = null;
       envRows = [];
@@ -578,6 +609,11 @@
         {/if}
         {#if done}
           <p class="done" role="status">{done}</p>
+          {#if projectId}
+            <p class="done-link">
+              <a href={`/project/${projectId}`} onclick={goProject}>View project</a>
+            </p>
+          {/if}
         {/if}
 
         <button class="submit" type="submit" disabled={!canSubmit}>
@@ -1203,6 +1239,19 @@
 
   .done {
     color: var(--green);
+  }
+
+  .done-link {
+    margin: 8px 0 0;
+    font-size: 16px;
+    font-weight: 500;
+  }
+
+  .done-link a {
+    color: var(--blue);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 0.18em;
   }
 
   .submit {
