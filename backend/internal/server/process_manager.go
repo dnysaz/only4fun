@@ -23,6 +23,9 @@ import (
 const (
 	minSSRPort = 4000
 	maxSSRPort = 5000
+	// Next.js butuh waktu lebih lama dari 10 detik untuk membuka port saat
+	// dingin (banyak route + Turbopack). Processes that exit still fail fast.
+	ssrReadyTimeout = 60 * time.Second
 )
 
 // ProcessManager mengelola proses Node.js untuk SSR projects.
@@ -146,8 +149,8 @@ func (pm *ProcessManager) Start(subdomain, serverEntry string, envVars ...map[st
 	}
 	hash := envHash(env)
 
-	// Startup bisa memakan waktu 10 detik. Kunci global hanya dipakai untuk
-	// membaca/menulis state bersama, bukan saat menunggu proses siap.
+	// Startup bisa memakan waktu sampai ssrReadyTimeout. Kunci global hanya
+	// dipakai untuk membaca/menulis state bersama, bukan saat menunggu proses siap.
 	lock := pm.keyLock(subdomain)
 	lock.Lock()
 	defer lock.Unlock()
@@ -276,11 +279,12 @@ func (pm *ProcessManager) startProcess(subdomain, serverEntry string, env map[st
 		close(done)
 	}()
 
-	// Tunggu server siap (max 10 detik). Port harus benar-benar dibuka oleh
-	// proses ini, bukan proses lain yang kebetulan memakai nomor yang sama.
+	// Tunggu server siap. Port harus benar-benar dibuka oleh proses ini,
+	// bukan proses lain yang kebetulan memakai nomor yang sama.
 	proc := &Process{Cmd: cmd}
 	ready := false
-	for i := 0; i < 50; i++ {
+	deadline := time.Now().Add(ssrReadyTimeout)
+	for time.Now().Before(deadline) {
 		time.Sleep(200 * time.Millisecond)
 		if !isProcessAlive(proc) {
 			pm.mu.Lock()
@@ -298,7 +302,7 @@ func (pm *ProcessManager) startProcess(subdomain, serverEntry string, env map[st
 		pm.mu.Lock()
 		pm.releasePort(port)
 		pm.mu.Unlock()
-		return nil, fmt.Errorf("the server did not become ready within 10 seconds")
+		return nil, fmt.Errorf("the server did not become ready within %s", ssrReadyTimeout)
 	}
 
 	return &Process{

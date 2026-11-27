@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -152,6 +153,7 @@ func SiteHandler(cfg *config.Config, projectStore *database.ProjectStore, pm *Pr
 			envVars, _ := projectStore.GetEnvVars(project.ID)
 			port, err := pm.Start(project.Subdomain, serverEntry, envVars)
 			if err != nil {
+				log.Printf("SSR start failed for %s: %v", project.Subdomain, err)
 				c.String(http.StatusServiceUnavailable, "server is starting, please retry")
 				return
 			}
