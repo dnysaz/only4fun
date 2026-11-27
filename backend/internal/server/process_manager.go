@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -372,15 +373,24 @@ func (pm *ProcessManager) StopAllGraceful(graceTimeout time.Duration) {
 	}
 }
 
-// RegisterSignalHandler mendaftarkan handler SIGTERM/SIGINT agar proses
-// Node.js (SSR) dihentikan secara rapi saat backend dihentikan (misal
-// `systemctl restart`). Setelah selesai, os.Exit(0) dipanggil.
-func (pm *ProcessManager) RegisterSignalHandler() {
+// RegisterSignalHandler mendaftarkan handler SIGTERM/SIGINT agar HTTP server
+// berhenti menerima request baru, request berjalan selesai, lalu proses Node.js
+// (SSR) dihentikan secara rapi (misal `systemctl restart`). Setelah selesai,
+// os.Exit(0) dipanggil.
+func (pm *ProcessManager) RegisterSignalHandler(srv *Server) {
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGTERM, syscall.SIGINT)
 	go func() {
 		<-c
-		log.Println("received shutdown signal, stopping SSR servers gracefully...")
+		log.Println("received shutdown signal, draining HTTP requests...")
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		if srv != nil {
+			if err := srv.Shutdown(ctx); err != nil {
+				log.Printf("HTTP graceful shutdown: %v", err)
+			}
+		}
+		log.Println("stopping SSR servers gracefully...")
 		pm.StopAllGraceful(10 * time.Second)
 		os.Exit(0)
 	}()

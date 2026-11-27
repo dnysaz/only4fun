@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -44,6 +45,12 @@ func newHTTPServer(addr string, handler http.Handler) *http.Server {
 
 func (s *Server) ListenAndServe() error {
 	return s.srv.ListenAndServe()
+}
+
+// Shutdown menghentikan penerimaan request baru dan menunggu request yang
+// sedang berjalan hingga selesai atau ctx habis.
+func (s *Server) Shutdown(ctx context.Context) error {
+	return s.srv.Shutdown(ctx)
 }
 
 func (s *Server) GetProcessManager() *ProcessManager {
